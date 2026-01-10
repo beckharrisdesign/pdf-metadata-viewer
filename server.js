@@ -5,6 +5,27 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { existsSync } from 'fs';
 
+// Parse comma-delimited string, handling quoted values
+function parseCommaDelimitedString(str) {
+  if (!str || typeof str !== 'string') return [];
+  
+  // Simple split by comma, then trim each item
+  const result = str
+    .split(',')
+    .map(item => {
+      // Remove quotes if present and trim
+      let trimmed = item.trim();
+      if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || 
+          (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+        trimmed = trimmed.slice(1, -1).trim();
+      }
+      return trimmed;
+    })
+    .filter(item => item.length > 0);
+  
+  return result;
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -30,6 +51,37 @@ app.get('/api/metadata/:filename', async (req, res) => {
     const pdfBytes = await readFile(filePath);
     const pdfDoc = await PDFDocument.load(pdfBytes);
     
+    // Get keywords - pdf-lib returns an array
+    let keywordsRaw = pdfDoc.getKeywords() || [];
+    console.log('Reading keywords from PDF - raw:', { 
+      type: typeof keywordsRaw, 
+      value: keywordsRaw, 
+      isArray: Array.isArray(keywordsRaw),
+      length: Array.isArray(keywordsRaw) ? keywordsRaw.length : 'N/A'
+    });
+    
+    // pdf-lib's getKeywords() should return an array directly
+    // If it's already an array, use it as-is
+    let keywordsArray = [];
+    if (Array.isArray(keywordsRaw)) {
+      keywordsArray = keywordsRaw;
+      console.log('Keywords is array, using directly:', keywordsArray);
+    } else if (typeof keywordsRaw === 'string') {
+      // If it's a string (shouldn't happen with pdf-lib, but handle it)
+      console.log('Keywords is string (unexpected), parsing:', keywordsRaw);
+      if (keywordsRaw.includes(',')) {
+        keywordsArray = parseCommaDelimitedString(keywordsRaw);
+      } else {
+        // Legacy format: space-separated
+        keywordsArray = keywordsRaw.split(/\s+/).filter(k => k.trim().length > 0);
+      }
+    }
+    
+    console.log('Final keywords array before joining:', keywordsArray);
+    // Join with comma to send comma-delimited string to client
+    const keywordsString = keywordsArray.join(',');
+    console.log('Keywords string being sent to client:', keywordsString);
+    
     const metadata = {
       title: pdfDoc.getTitle() || 'Untitled',
       author: pdfDoc.getAuthor() || 'Unknown',
@@ -38,7 +90,7 @@ app.get('/api/metadata/:filename', async (req, res) => {
       producer: pdfDoc.getProducer() || '',
       creationDate: pdfDoc.getCreationDate()?.toString() || '',
       modificationDate: pdfDoc.getModificationDate()?.toString() || '',
-      keywords: pdfDoc.getKeywords() || '',
+      keywords: keywordsString,
       pageCount: pdfDoc.getPageCount(),
       // Custom metadata (XMP)
       custom: {}
@@ -102,7 +154,16 @@ app.put('/api/metadata/:filename', async (req, res) => {
       subject: () => pdfDoc.setSubject(value || ''),
       creator: () => pdfDoc.setCreator(value || ''),
       producer: () => pdfDoc.setProducer(value || ''),
-      keywords: () => pdfDoc.setKeywords(value || '')
+      // Keywords expects an array, split by comma and trim each keyword
+      keywords: () => {
+        console.log('Saving keywords - received value:', value, 'type:', typeof value);
+        const keywordsArray = value 
+          ? value.split(',').map(k => k.trim()).filter(k => k.length > 0)
+          : [];
+        console.log('Saving keywords - array to save:', keywordsArray);
+        pdfDoc.setKeywords(keywordsArray);
+        console.log('Saving keywords - after setKeywords, verifying:', pdfDoc.getKeywords());
+      }
     };
 
     if (fieldMap[field]) {
