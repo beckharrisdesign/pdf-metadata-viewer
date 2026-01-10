@@ -58,3 +58,7 @@ Managing personal and household documents after scanning/photographing is time-c
 - Point application at cloud directories (Google Drive, Dropbox, etc.)
 - Autonomous batch updates via AI agent
 - Reporting and analytics on document processing
+- Editing additional metadata fields beyond title, subject, keywords
+- Duplicate detection across document collection
+- Optimizing AI prompts for better metadata suggestions
+- OCR text extraction where PDF supports it
