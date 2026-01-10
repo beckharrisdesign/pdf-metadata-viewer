@@ -1,0 +1,5 @@
+node_modules/
+pdfs/*
+!pdfs/.gitkeep
+.env
+.DS_Store

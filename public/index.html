@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF Metadata Viewer</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>PDF Metadata Viewer</h1>
+      <div class="file-selector">
+        <label for="pdf-select">Select PDF:</label>
+        <select id="pdf-select">
+          <option value="">-- Choose a PDF --</option>
+        </select>
+      </div>
+    </header>
+
+    <main>
+      <div class="preview-section">
+        <h2>Preview</h2>
+        <div id="pdf-preview" class="pdf-preview">
+          <p class="placeholder">Select a PDF file to view</p>
+        </div>
+      </div>
+
+      <div class="metadata-section">
+        <h2>Metadata</h2>
+        <div id="metadata-display" class="metadata-display">
+          <p class="placeholder">No file selected</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
