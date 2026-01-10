@@ -62,3 +62,4 @@ Managing personal and household documents after scanning/photographing is time-c
 - Duplicate detection across document collection
 - Optimizing AI prompts for better metadata suggestions
 - OCR text extraction where PDF supports it
+- PDF splitter mode: Split multi-page PDFs into individual files, preserving metadata and allowing batch organization
