@@ -3,6 +3,7 @@ let pdfList = [];
 let currentIndex = -1;
 let currentFilename = '';
 let currentlyEditing = null;
+let editingFilename = false;
 
 // Load available PDFs on page load
 document.addEventListener('DOMContentLoaded', async () => {
@@ -13,16 +14,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   prevBtn.addEventListener('click', navigatePrevious);
   nextBtn.addEventListener('click', navigateNext);
   
-  // File rename handlers
-  const renameInput = document.getElementById('file-rename-input');
-  const renameBtn = document.getElementById('file-rename-btn');
-  renameBtn.addEventListener('click', handleFileRename);
-  renameInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleFileRename();
-    }
-  });
+  // Filename click handler
+  const pdfNameElement = document.getElementById('pdf-name');
+  pdfNameElement.addEventListener('click', handleFilenameClick);
   
   // Auto-select first PDF if available
   if (pdfList.length > 0) {
@@ -48,27 +42,65 @@ async function loadPDFList() {
 
 function updatePDFNameDisplay() {
   const pdfNameElement = document.getElementById('pdf-name');
-  const renameInput = document.getElementById('file-rename-input');
   
-  if (pdfNameElement) {
+  if (editingFilename) {
+    // Show input field with save button
+    const currentName = currentFilename || '';
+    const nameWithoutExt = currentName.replace(/\.pdf$/i, '');
+    pdfNameElement.innerHTML = `
+      <div class="filename-edit-container">
+        <input type="text" 
+               class="filename-input" 
+               value="${escapeHtml(nameWithoutExt)}" 
+               id="filename-edit-input"
+               placeholder="Enter filename">
+        <button class="save-btn filename-save-btn">Save</button>
+        <button class="cancel-btn filename-cancel-btn">Cancel</button>
+      </div>
+    `;
+    
+    // Add event listeners
+    const input = document.getElementById('filename-edit-input');
+    const saveBtn = pdfNameElement.querySelector('.filename-save-btn');
+    const cancelBtn = pdfNameElement.querySelector('.filename-cancel-btn');
+    
+    input.focus();
+    input.select();
+    
+    saveBtn.addEventListener('click', handleFileRename);
+    cancelBtn.addEventListener('click', cancelFilenameEdit);
+    
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleFileRename();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        cancelFilenameEdit();
+      }
+    });
+  } else {
+    // Show clickable filename
     if (currentFilename) {
-      pdfNameElement.textContent = currentFilename;
+      pdfNameElement.innerHTML = `<span class="filename-clickable">${escapeHtml(currentFilename)}</span>`;
+      pdfNameElement.style.cursor = 'pointer';
     } else {
       pdfNameElement.textContent = '-- No PDF selected --';
+      pdfNameElement.style.cursor = 'default';
     }
   }
+}
+
+function handleFilenameClick() {
+  if (!currentFilename || editingFilename) return;
   
-  if (renameInput) {
-    if (currentFilename) {
-      // Remove .pdf extension for editing, user can add it back
-      const nameWithoutExt = currentFilename.replace(/\.pdf$/i, '');
-      renameInput.value = nameWithoutExt;
-      renameInput.disabled = false;
-    } else {
-      renameInput.value = '';
-      renameInput.disabled = true;
-    }
-  }
+  editingFilename = true;
+  updatePDFNameDisplay();
+}
+
+function cancelFilenameEdit() {
+  editingFilename = false;
+  updatePDFNameDisplay();
 }
 
 function navigatePrevious() {
@@ -84,6 +116,7 @@ function navigatePrevious() {
   const filename = pdfList[currentIndex];
   currentFilename = filename;
   currentlyEditing = null;
+  editingFilename = false;
   updatePDFNameDisplay();
   loadPDFPreview(filename);
   loadPDFMetadata(filename);
@@ -103,6 +136,7 @@ function navigateNext() {
   const filename = pdfList[currentIndex];
   currentFilename = filename;
   currentlyEditing = null;
+  editingFilename = false;
   updatePDFNameDisplay();
   loadPDFPreview(filename);
   loadPDFMetadata(filename);
@@ -121,6 +155,7 @@ function updateNavigationButtons() {
 function clearDisplay() {
   currentFilename = '';
   updatePDFNameDisplay();
+  updatePreviewTitle(null, null);
   
   const preview = document.getElementById('pdf-preview');
   preview.innerHTML = '<p class="placeholder">Select a PDF file to view</p>';
@@ -144,32 +179,39 @@ async function loadPDFPreview(filename, useCacheBust = false) {
     const loadingTask = pdfjsLib.getDocument(pdfUrl);
     const pdf = await loadingTask.promise;
     
-    // Render first page only
-    const page = await pdf.getPage(1);
-    const viewport = page.getViewport({ scale: 1.5 });
-    
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    canvas.height = viewport.height;
-    canvas.width = viewport.width;
-    canvas.style.maxWidth = '100%';
-    canvas.style.height = 'auto';
-    
-    await page.render({
-      canvasContext: context,
-      viewport: viewport
-    }).promise;
-    
     preview.innerHTML = '';
-    preview.appendChild(canvas);
     
-    // Show page count if more than 1 page
-    if (pdf.numPages > 1) {
-      const pageInfo = document.createElement('div');
-      pageInfo.className = 'page-info';
-      pageInfo.textContent = `Page 1 of ${pdf.numPages}`;
-      preview.appendChild(pageInfo);
+    // Render all pages
+    const pagesContainer = document.createElement('div');
+    pagesContainer.className = 'pdf-pages-container';
+    
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const viewport = page.getViewport({ scale: 1.2 });
+      
+      const pageWrapper = document.createElement('div');
+      pageWrapper.className = 'pdf-page-wrapper';
+      
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+      
+      await page.render({
+        canvasContext: context,
+        viewport: viewport
+      }).promise;
+      
+      const pageLabel = document.createElement('div');
+      pageLabel.className = 'page-label';
+      pageLabel.textContent = `Page ${pageNum}`;
+      
+      pageWrapper.appendChild(pageLabel);
+      pageWrapper.appendChild(canvas);
+      pagesContainer.appendChild(pageWrapper);
     }
+    
+    preview.appendChild(pagesContainer);
   } catch (error) {
     console.error('Error loading PDF preview:', error);
     preview.innerHTML = '<p class="placeholder">Error loading PDF preview</p>';
@@ -182,10 +224,22 @@ async function loadPDFMetadata(filename) {
     const metadata = await response.json();
     
     displayMetadata(metadata);
+    updatePreviewTitle(filename, metadata.pageCount);
   } catch (error) {
     console.error('Error loading metadata:', error);
     const metadataDisplay = document.getElementById('metadata-display');
     metadataDisplay.innerHTML = '<p class="placeholder">Error loading metadata</p>';
+    updatePreviewTitle(filename, null);
+  }
+}
+
+function updatePreviewTitle(filename, pageCount) {
+  const previewTitle = document.getElementById('preview-title');
+  if (filename) {
+    const pageText = pageCount ? ` (${pageCount} ${pageCount === 1 ? 'page' : 'pages'})` : '';
+    previewTitle.textContent = `${filename}${pageText}`;
+  } else {
+    previewTitle.textContent = '-- No PDF selected --';
   }
 }
 
@@ -220,13 +274,22 @@ function parseCommaDelimitedString(str) {
 function displayMetadata(metadata) {
   const metadataDisplay = document.getElementById('metadata-display');
   
-  const fields = [
+  // Main editable fields - shown first (always visible)
+  const mainFields = [
     { key: 'title', label: 'Title', editable: true },
-    { key: 'author', label: 'Author', editable: true },
+    { key: 'keywords', label: 'Keywords', editable: true }
+  ];
+  
+  // Secondary editable fields - shown before system fields
+  const secondaryFields = [
     { key: 'subject', label: 'Subject', editable: true },
-    { key: 'creator', label: 'Creator', editable: true },
-    { key: 'producer', label: 'Producer', editable: true },
-    { key: 'keywords', label: 'Keywords', editable: true },
+    { key: 'author', label: 'Author', editable: true }
+  ];
+  
+  // System fields - shown at bottom, smaller, not editable
+  const systemFields = [
+    { key: 'creator', label: 'Creator', editable: false },
+    { key: 'producer', label: 'Producer', editable: false },
     { key: 'creationDate', label: 'Creation Date', editable: false },
     { key: 'modificationDate', label: 'Modification Date', editable: false },
     { key: 'pageCount', label: 'Page Count', editable: false }
@@ -234,7 +297,8 @@ function displayMetadata(metadata) {
   
   let html = '';
   
-  fields.forEach(field => {
+  // Render main editable fields first
+  mainFields.forEach(field => {
     const value = metadata[field.key];
     const displayValue = value || (field.key === 'pageCount' ? '0' : '');
     const isEmpty = !value && field.key !== 'pageCount';
@@ -350,6 +414,66 @@ function displayMetadata(metadata) {
         `;
       }
     }
+  });
+  
+  // Add separator before secondary fields
+  html += '<div class="metadata-separator"></div>';
+  
+  // Render secondary editable fields
+  secondaryFields.forEach(field => {
+    const value = metadata[field.key];
+    const displayValue = value || '';
+    const isEmpty = !value;
+    const isEditing = currentlyEditing === field.key;
+    
+    if (isEditing) {
+      // Show input field with save button
+      html += `
+        <div class="metadata-item editing">
+          <div class="metadata-label">${field.label}</div>
+          <div class="metadata-edit-container">
+            <input type="text" 
+                   class="metadata-input" 
+                   value="${value || ''}" 
+                   data-field="${field.key}"
+                   id="edit-${field.key}">
+            <button class="save-btn" data-field="${field.key}">Save</button>
+          </div>
+        </div>
+      `;
+    } else {
+      // Show regular display
+      const clickable = field.editable ? 'clickable' : '';
+      html += `
+        <div class="metadata-item">
+          <div class="metadata-label">${field.label}</div>
+          <div class="metadata-value ${isEmpty ? 'empty' : ''} ${clickable}" 
+               data-field="${field.key}" 
+               ${field.editable ? 'data-editable="true"' : ''}>
+            ${isEmpty ? '(empty)' : displayValue}
+          </div>
+        </div>
+      `;
+    }
+  });
+  
+  // Add separator before system fields
+  html += '<div class="metadata-separator"></div>';
+  
+  // Render system fields at bottom (smaller, not editable)
+  systemFields.forEach(field => {
+    const value = metadata[field.key];
+    const displayValue = value || (field.key === 'pageCount' ? '0' : '');
+    const isEmpty = !value && field.key !== 'pageCount';
+    
+    html += `
+      <div class="metadata-item system-field">
+        <div class="metadata-label system-label">${field.label}</div>
+        <div class="metadata-value system-value ${isEmpty ? 'empty' : ''}">
+          ${isEmpty ? '(empty)' : displayValue}
+        </div>
+      </div>
+    `;
   });
   
   // Display custom metadata if available
@@ -671,8 +795,10 @@ async function handleSave(event) {
 }
 
 async function handleFileRename() {
-  const renameInput = document.getElementById('file-rename-input');
-  const newName = renameInput.value.trim();
+  const input = document.getElementById('filename-edit-input');
+  if (!input) return;
+  
+  const newName = input.value.trim();
   
   if (!newName) {
     alert('Please enter a filename');
@@ -689,6 +815,8 @@ async function handleFileRename() {
   
   // Don't rename if it's the same
   if (newFilename === currentFilename) {
+    editingFilename = false;
+    updatePDFNameDisplay();
     return;
   }
   
@@ -735,7 +863,8 @@ async function handleFileRename() {
       }
     }
     
-    // Update displays
+    // Exit edit mode and update displays
+    editingFilename = false;
     updatePDFNameDisplay();
     await loadPDFPreview(currentFilename);
     await loadPDFMetadata(currentFilename);
