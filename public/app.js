@@ -1,20 +1,38 @@
+// Store PDF list and current index
+let pdfList = [];
+let currentIndex = -1;
+
 // Load available PDFs on page load
 document.addEventListener('DOMContentLoaded', async () => {
   await loadPDFList();
   
   const pdfSelect = document.getElementById('pdf-select');
   pdfSelect.addEventListener('change', handlePDFSelect);
+  
+  const prevBtn = document.getElementById('prev-btn');
+  const nextBtn = document.getElementById('next-btn');
+  prevBtn.addEventListener('click', navigatePrevious);
+  nextBtn.addEventListener('click', navigateNext);
+  
+  // Auto-select first PDF if available
+  if (pdfList.length > 0) {
+    currentIndex = 0;
+    pdfSelect.value = pdfList[0];
+    await loadPDFPreview(pdfList[0]);
+    await loadPDFMetadata(pdfList[0]);
+    updateNavigationButtons();
+  }
 });
 
 async function loadPDFList() {
   try {
     const response = await fetch('/api/pdfs');
-    const pdfs = await response.json();
+    pdfList = await response.json();
     
     const select = document.getElementById('pdf-select');
     select.innerHTML = '<option value="">-- Choose a PDF --</option>';
     
-    pdfs.forEach(pdf => {
+    pdfList.forEach(pdf => {
       const option = document.createElement('option');
       option.value = pdf;
       option.textContent = pdf;
@@ -30,11 +48,49 @@ async function handlePDFSelect(event) {
   
   if (!filename) {
     clearDisplay();
+    currentIndex = -1;
+    updateNavigationButtons();
     return;
   }
   
+  // Update current index based on selection
+  currentIndex = pdfList.indexOf(filename);
+  
   await loadPDFPreview(filename);
   await loadPDFMetadata(filename);
+  updateNavigationButtons();
+}
+
+function navigatePrevious() {
+  if (currentIndex > 0) {
+    currentIndex--;
+    const filename = pdfList[currentIndex];
+    const select = document.getElementById('pdf-select');
+    select.value = filename;
+    loadPDFPreview(filename);
+    loadPDFMetadata(filename);
+    updateNavigationButtons();
+  }
+}
+
+function navigateNext() {
+  if (currentIndex < pdfList.length - 1) {
+    currentIndex++;
+    const filename = pdfList[currentIndex];
+    const select = document.getElementById('pdf-select');
+    select.value = filename;
+    loadPDFPreview(filename);
+    loadPDFMetadata(filename);
+    updateNavigationButtons();
+  }
+}
+
+function updateNavigationButtons() {
+  const prevBtn = document.getElementById('prev-btn');
+  const nextBtn = document.getElementById('next-btn');
+  
+  prevBtn.disabled = currentIndex <= 0 || pdfList.length === 0;
+  nextBtn.disabled = currentIndex >= pdfList.length - 1 || pdfList.length === 0;
 }
 
 function clearDisplay() {
