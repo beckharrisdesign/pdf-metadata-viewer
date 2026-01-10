@@ -19,35 +19,27 @@ body {
 
 header {
   background: white;
-  padding: 20px;
+  padding: 12px 20px;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   margin-bottom: 20px;
 }
 
-header h1 {
-  margin-bottom: 15px;
-  color: #2c3e50;
-}
-
 .file-selector {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  justify-content: center;
 }
 
-.file-selector label {
-  font-weight: 500;
-}
-
-.file-selector select {
+.pdf-name {
   flex: 1;
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  text-align: center;
   font-size: 14px;
-  background: white;
-  cursor: pointer;
+  font-weight: 500;
+  color: #333;
+  padding: 8px 12px;
+  min-height: 20px;
 }
 
 .nav-btn {
@@ -91,6 +83,64 @@ main {
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
+.file-rename-box {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.file-rename-box label {
+  display: block;
+  font-weight: 600;
+  color: #555;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.file-rename-container {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.file-rename-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+  color: #333;
+}
+
+.file-rename-input:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.file-rename-btn {
+  padding: 8px 16px;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.file-rename-btn:hover {
+  background-color: #2980b9;
+}
+
+.file-rename-btn:active {
+  background-color: #21618c;
+}
+
 .preview-section h2,
 .metadata-section h2 {
   margin-bottom: 15px;
@@ -111,11 +161,19 @@ main {
   justify-content: center;
 }
 
-.pdf-preview iframe {
-  width: 100%;
-  height: 100%;
-  min-height: 600px;
-  border: none;
+.pdf-preview canvas {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+.pdf-preview .page-info {
+  text-align: center;
+  margin-top: 10px;
+  font-size: 12px;
+  color: #666;
+  padding: 4px;
 }
 
 .pdf-preview .placeholder {

@@ -1,5 +1,5 @@
 import express from 'express';
-import { readFile, readdir, writeFile } from 'fs/promises';
+import { readFile, readdir, writeFile, rename } from 'fs/promises';
 import { PDFDocument } from 'pdf-lib';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -182,6 +182,40 @@ app.put('/api/metadata/:filename', async (req, res) => {
     console.error('Error updating PDF metadata:', error);
     console.error('Error stack:', error.stack);
     res.status(500).json({ error: 'Failed to update PDF metadata', details: error.message });
+  }
+});
+
+// Endpoint to rename a PDF file
+app.post('/api/rename/:filename', async (req, res) => {
+  try {
+    const filename = decodeURIComponent(req.params.filename);
+    const { newFilename } = req.body;
+    const oldFilePath = join(__dirname, 'pdfs', filename);
+    const newFilePath = join(__dirname, 'pdfs', newFilename);
+    
+    if (!newFilename) {
+      return res.status(400).json({ error: 'New filename is required' });
+    }
+    
+    // Ensure new filename has .pdf extension
+    const finalNewFilename = newFilename.endsWith('.pdf') ? newFilename : `${newFilename}.pdf`;
+    const finalNewFilePath = join(__dirname, 'pdfs', finalNewFilename);
+    
+    if (!existsSync(oldFilePath)) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+    
+    if (existsSync(finalNewFilePath)) {
+      return res.status(400).json({ error: 'A file with that name already exists' });
+    }
+    
+    await rename(oldFilePath, finalNewFilePath);
+    
+    console.log(`Renamed: ${filename} -> ${finalNewFilename}`);
+    res.json({ success: true, message: 'File renamed successfully', newFilename: finalNewFilename });
+  } catch (error) {
+    console.error('Error renaming file:', error);
+    res.status(500).json({ error: 'Failed to rename file', details: error.message });
   }
 });
 

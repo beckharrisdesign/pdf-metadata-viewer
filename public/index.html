@@ -5,17 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PDF Metadata Viewer</title>
   <link rel="stylesheet" href="styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body>
   <div class="container">
     <header>
-      <h1>PDF Metadata Viewer</h1>
       <div class="file-selector">
         <button id="prev-btn" class="nav-btn" title="Previous PDF">‹</button>
-        <label for="pdf-select">Select PDF:</label>
-        <select id="pdf-select">
-          <option value="">-- Choose a PDF --</option>
-        </select>
+        <div id="pdf-name" class="pdf-name">-- No PDF selected --</div>
         <button id="next-btn" class="nav-btn" title="Next PDF">›</button>
       </div>
     </header>
@@ -29,6 +26,13 @@
       </div>
 
       <div class="metadata-section">
+        <div class="file-rename-box">
+          <label for="file-rename-input">Filename:</label>
+          <div class="file-rename-container">
+            <input type="text" id="file-rename-input" class="file-rename-input" placeholder="Enter new filename">
+            <button id="file-rename-btn" class="file-rename-btn">Rename</button>
+          </div>
+        </div>
         <h2>Metadata</h2>
         <div id="metadata-display" class="metadata-display">
           <p class="placeholder">No file selected</p>

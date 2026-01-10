@@ -8,22 +8,32 @@ let currentlyEditing = null;
 document.addEventListener('DOMContentLoaded', async () => {
   await loadPDFList();
   
-  const pdfSelect = document.getElementById('pdf-select');
-  pdfSelect.addEventListener('change', handlePDFSelect);
-  
   const prevBtn = document.getElementById('prev-btn');
   const nextBtn = document.getElementById('next-btn');
   prevBtn.addEventListener('click', navigatePrevious);
   nextBtn.addEventListener('click', navigateNext);
   
+  // File rename handlers
+  const renameInput = document.getElementById('file-rename-input');
+  const renameBtn = document.getElementById('file-rename-btn');
+  renameBtn.addEventListener('click', handleFileRename);
+  renameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleFileRename();
+    }
+  });
+  
   // Auto-select first PDF if available
   if (pdfList.length > 0) {
     currentIndex = 0;
     currentFilename = pdfList[0];
-    pdfSelect.value = pdfList[0];
+    updatePDFNameDisplay();
     await loadPDFPreview(pdfList[0]);
     await loadPDFMetadata(pdfList[0]);
     updateNavigationButtons();
+  } else {
+    updatePDFNameDisplay();
   }
 });
 
@@ -31,78 +41,87 @@ async function loadPDFList() {
   try {
     const response = await fetch('/api/pdfs');
     pdfList = await response.json();
-    
-    const select = document.getElementById('pdf-select');
-    select.innerHTML = '<option value="">-- Choose a PDF --</option>';
-    
-    pdfList.forEach(pdf => {
-      const option = document.createElement('option');
-      option.value = pdf;
-      option.textContent = pdf;
-      select.appendChild(option);
-    });
   } catch (error) {
     console.error('Error loading PDF list:', error);
   }
 }
 
-async function handlePDFSelect(event) {
-  const filename = event.target.value;
+function updatePDFNameDisplay() {
+  const pdfNameElement = document.getElementById('pdf-name');
+  const renameInput = document.getElementById('file-rename-input');
   
-  if (!filename) {
-    clearDisplay();
-    currentIndex = -1;
-    updateNavigationButtons();
-    return;
+  if (pdfNameElement) {
+    if (currentFilename) {
+      pdfNameElement.textContent = currentFilename;
+    } else {
+      pdfNameElement.textContent = '-- No PDF selected --';
+    }
   }
   
-  // Update current index based on selection
-  currentIndex = pdfList.indexOf(filename);
-  currentFilename = filename;
-  currentlyEditing = null;
-  
-  await loadPDFPreview(filename);
-  await loadPDFMetadata(filename);
-  updateNavigationButtons();
+  if (renameInput) {
+    if (currentFilename) {
+      // Remove .pdf extension for editing, user can add it back
+      const nameWithoutExt = currentFilename.replace(/\.pdf$/i, '');
+      renameInput.value = nameWithoutExt;
+      renameInput.disabled = false;
+    } else {
+      renameInput.value = '';
+      renameInput.disabled = true;
+    }
+  }
 }
 
 function navigatePrevious() {
-  if (currentIndex > 0) {
+  if (pdfList.length === 0) return;
+  
+  // Loop to end if at beginning
+  if (currentIndex <= 0) {
+    currentIndex = pdfList.length - 1;
+  } else {
     currentIndex--;
-    const filename = pdfList[currentIndex];
-    currentFilename = filename;
-    currentlyEditing = null;
-    const select = document.getElementById('pdf-select');
-    select.value = filename;
-    loadPDFPreview(filename);
-    loadPDFMetadata(filename);
-    updateNavigationButtons();
   }
+  
+  const filename = pdfList[currentIndex];
+  currentFilename = filename;
+  currentlyEditing = null;
+  updatePDFNameDisplay();
+  loadPDFPreview(filename);
+  loadPDFMetadata(filename);
+  updateNavigationButtons();
 }
 
 function navigateNext() {
-  if (currentIndex < pdfList.length - 1) {
+  if (pdfList.length === 0) return;
+  
+  // Loop to beginning if at end
+  if (currentIndex >= pdfList.length - 1) {
+    currentIndex = 0;
+  } else {
     currentIndex++;
-    const filename = pdfList[currentIndex];
-    currentFilename = filename;
-    currentlyEditing = null;
-    const select = document.getElementById('pdf-select');
-    select.value = filename;
-    loadPDFPreview(filename);
-    loadPDFMetadata(filename);
-    updateNavigationButtons();
   }
+  
+  const filename = pdfList[currentIndex];
+  currentFilename = filename;
+  currentlyEditing = null;
+  updatePDFNameDisplay();
+  loadPDFPreview(filename);
+  loadPDFMetadata(filename);
+  updateNavigationButtons();
 }
 
 function updateNavigationButtons() {
   const prevBtn = document.getElementById('prev-btn');
   const nextBtn = document.getElementById('next-btn');
   
-  prevBtn.disabled = currentIndex <= 0 || pdfList.length === 0;
-  nextBtn.disabled = currentIndex >= pdfList.length - 1 || pdfList.length === 0;
+  // Buttons are never disabled since we loop around
+  prevBtn.disabled = pdfList.length === 0;
+  nextBtn.disabled = pdfList.length === 0;
 }
 
 function clearDisplay() {
+  currentFilename = '';
+  updatePDFNameDisplay();
+  
   const preview = document.getElementById('pdf-preview');
   preview.innerHTML = '<p class="placeholder">Select a PDF file to view</p>';
   
@@ -118,7 +137,43 @@ async function loadPDFPreview(filename, useCacheBust = false) {
     pdfUrl += `?t=${Date.now()}`;
   }
   
-  preview.innerHTML = `<iframe src="${pdfUrl}" type="application/pdf"></iframe>`;
+  try {
+    // Use PDF.js for minimal preview
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    
+    const loadingTask = pdfjsLib.getDocument(pdfUrl);
+    const pdf = await loadingTask.promise;
+    
+    // Render first page only
+    const page = await pdf.getPage(1);
+    const viewport = page.getViewport({ scale: 1.5 });
+    
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
+    canvas.style.maxWidth = '100%';
+    canvas.style.height = 'auto';
+    
+    await page.render({
+      canvasContext: context,
+      viewport: viewport
+    }).promise;
+    
+    preview.innerHTML = '';
+    preview.appendChild(canvas);
+    
+    // Show page count if more than 1 page
+    if (pdf.numPages > 1) {
+      const pageInfo = document.createElement('div');
+      pageInfo.className = 'page-info';
+      pageInfo.textContent = `Page 1 of ${pdf.numPages}`;
+      preview.appendChild(pageInfo);
+    }
+  } catch (error) {
+    console.error('Error loading PDF preview:', error);
+    preview.innerHTML = '<p class="placeholder">Error loading PDF preview</p>';
+  }
 }
 
 async function loadPDFMetadata(filename) {
@@ -612,5 +667,81 @@ async function handleSave(event) {
   } catch (error) {
     console.error('Error saving metadata:', error);
     alert(`Error saving: ${error.message}`);
+  }
+}
+
+async function handleFileRename() {
+  const renameInput = document.getElementById('file-rename-input');
+  const newName = renameInput.value.trim();
+  
+  if (!newName) {
+    alert('Please enter a filename');
+    return;
+  }
+  
+  if (!currentFilename) {
+    alert('No file selected');
+    return;
+  }
+  
+  // Ensure .pdf extension
+  const newFilename = newName.endsWith('.pdf') ? newName : `${newName}.pdf`;
+  
+  // Don't rename if it's the same
+  if (newFilename === currentFilename) {
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/api/rename/${encodeURIComponent(currentFilename)}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ newFilename })
+    });
+    
+    if (!response.ok) {
+      let errorMessage = 'Failed to rename file';
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        try {
+          const error = await response.json();
+          errorMessage = error.error || error.details || errorMessage;
+        } catch (e) {
+          errorMessage = response.statusText || errorMessage;
+        }
+      } else {
+        errorMessage = response.statusText || `Server error (${response.status})`;
+      }
+      throw new Error(errorMessage);
+    }
+    
+    const result = await response.json();
+    
+    // Update the current filename and refresh the list
+    currentFilename = result.newFilename || newFilename;
+    
+    // Reload the PDF list to ensure consistency
+    await loadPDFList();
+    
+    // Update the current index
+    currentIndex = pdfList.indexOf(currentFilename);
+    if (currentIndex === -1) {
+      // If file not found, try to find it or reset
+      currentIndex = 0;
+      if (pdfList.length > 0) {
+        currentFilename = pdfList[0];
+      }
+    }
+    
+    // Update displays
+    updatePDFNameDisplay();
+    await loadPDFPreview(currentFilename);
+    await loadPDFMetadata(currentFilename);
+    updateNavigationButtons();
+  } catch (error) {
+    console.error('Error renaming file:', error);
+    alert(`Error renaming file: ${error.message}`);
   }
 }
