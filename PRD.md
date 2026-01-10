@@ -61,6 +61,11 @@ Managing personal and household documents after scanning/photographing is time-c
 
 **Phase 1: Essential Metadata Features**
 - **Editing additional metadata fields**: Support editing author, creator, producer, and custom fields
+- **XMP packet metadata syncing**: Sync metadata in XMP packet format in addition to legacy PDF info dictionary
+  - Modern PDFs use XMP (Extensible Metadata Platform) for richer metadata support
+  - Sync metadata between XMP packet and legacy PDF info dictionary to ensure compatibility
+  - Support XMP-specific fields and namespaces (Dublin Core, PDF, etc.)
+  - Future-proof metadata storage while maintaining backward compatibility
 - **PDF splitter mode**: Split multi-page PDFs into individual files, preserving metadata
   - **UI Flow**:
     - "Split" button appears in metadata section (only visible when PDF has more than 1 page)

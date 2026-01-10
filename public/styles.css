@@ -44,6 +44,7 @@ header {
   display: flex;
   align-items: center;
   justify-content: center;
+  min-width: 0; /* Allow flex item to shrink below content size */
 }
 
 .filename-clickable {
@@ -66,10 +67,8 @@ header {
   display: flex;
   gap: 8px;
   align-items: center;
-  justify-content: center;
   width: 100%;
-  max-width: 600px;
-  margin: 0 auto;
+  max-width: 100%;
 }
 
 .filename-input {
@@ -81,7 +80,8 @@ header {
   font-weight: 500;
   font-family: inherit;
   color: #333;
-  min-width: 200px;
+  min-width: 0;
+  width: 100%;
 }
 
 .filename-input:focus {
@@ -143,6 +143,25 @@ header {
 .nav-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.nav-split-btn {
+  padding: 8px 16px;
+  height: 36px;
+  border: 1px solid #3498db;
+  border-radius: 4px;
+  background: #3498db;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+  white-space: nowrap;
+}
+
+.nav-split-btn:hover {
+  background: #2980b9;
+  border-color: #2980b9;
 }
 
 main {
@@ -547,6 +566,269 @@ main {
   outline: none;
   border-color: #3498db;
   box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+/* PDF Splitter View */
+.splitter-view {
+  grid-column: 1 / -1;
+  padding: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.splitter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #3498db;
+}
+
+.splitter-header h2 {
+  margin: 0;
+  font-size: 20px;
+  color: #333;
+}
+
+.splitter-back-btn {
+  padding: 8px 16px;
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.splitter-back-btn:hover {
+  background-color: #5a6268;
+}
+
+.splitter-instructions {
+  margin-bottom: 20px;
+  padding: 12px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  color: #666;
+  font-size: 14px;
+}
+
+.splitter-pages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding: 20px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  min-height: 200px;
+}
+
+.splitter-page-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  /* Each thumbnail gets: (100% - padding (40px) - 2 markers (80px) - 4 gaps (40px)) / 3 */
+  /* Total fixed space: 40px (padding) + 80px (markers) + 40px (gaps) = 160px */
+  width: calc((100% - 160px) / 3);
+  min-width: 0; /* Allow shrinking */
+  flex-shrink: 0;
+}
+
+.splitter-thumbnail {
+  border: 2px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.splitter-thumbnail:hover {
+  border-color: #3498db;
+}
+
+.splitter-page-label {
+  font-size: 12px;
+  color: #666;
+  font-weight: 500;
+}
+
+.splitter-marker-area {
+  width: 40px; /* Fixed width */
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 2px dashed #ccc;
+  border-radius: 4px;
+  transition: all 0.2s;
+  background-color: rgba(255, 255, 255, 0.5);
+  flex-shrink: 0; /* Don't shrink below 40px */
+}
+
+.splitter-marker-area:hover {
+  border-color: #3498db;
+  background-color: rgba(52, 152, 219, 0.1);
+}
+
+.splitter-marker-area.has-marker {
+  border-color: #28a745;
+  border-style: solid;
+  background-color: rgba(40, 167, 69, 0.1);
+  font-weight: bold;
+  color: #28a745;
+}
+
+.splitter-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+}
+
+.splitter-execute-btn {
+  padding: 12px 24px;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.splitter-execute-btn:hover:not(:disabled) {
+  background-color: #218838;
+}
+
+.splitter-execute-btn:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.splitter-clear-btn {
+  padding: 12px 24px;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.splitter-clear-btn:hover {
+  background-color: #c82333;
+}
+
+.split-action {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+}
+
+.split-btn {
+  width: 100%;
+  padding: 12px;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.split-btn:hover {
+  background-color: #2980b9;
+}
+
+/* Activity Log */
+.activity-log-section {
+  margin-top: 30px;
+  border-top: 2px solid #eee;
+  padding-top: 20px;
+}
+
+.activity-log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  padding: 10px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.activity-log-header:hover {
+  background-color: #e9ecef;
+}
+
+.activity-log-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: #333;
+}
+
+.activity-log-toggle-icon {
+  font-size: 12px;
+  color: #666;
+  transition: transform 0.2s;
+}
+
+.activity-log-content {
+  margin-top: 10px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.activity-log-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.activity-log-entry {
+  padding: 12px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  border-left: 3px solid #3498db;
+  font-size: 13px;
+}
+
+.activity-log-time {
+  color: #666;
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
+.activity-log-action {
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.activity-log-details {
+  color: #555;
+  margin-bottom: 4px;
+  word-break: break-word;
+}
+
+.activity-log-file {
+  color: #666;
+  font-size: 12px;
+  font-style: italic;
 }
 
 @media (max-width: 1024px) {

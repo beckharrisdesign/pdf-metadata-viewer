@@ -2,6 +2,7 @@
 let pdfList = [];
 let currentIndex = -1;
 let currentFilename = '';
+let currentPageCount = 0;
 let currentlyEditing = null;
 let editingFilename = false;
 
@@ -18,6 +19,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   const pdfNameElement = document.getElementById('pdf-name');
   pdfNameElement.addEventListener('click', handleFilenameClick);
   
+  // Split button click handler
+  const splitBtn = document.getElementById('split-btn');
+  splitBtn.addEventListener('click', async () => {
+    if (currentFilename) {
+      // Load metadata to pass to splitter view
+      try {
+        const response = await fetch(`/api/metadata/${encodeURIComponent(currentFilename)}`);
+        const metadata = await response.json();
+        showSplitterView(currentFilename, metadata);
+      } catch (error) {
+        console.error('Error loading metadata for splitter:', error);
+        alert('Error loading PDF metadata');
+      }
+    }
+  });
+  
   // Auto-select first PDF if available
   if (pdfList.length > 0) {
     currentIndex = 0;
@@ -28,6 +45,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateNavigationButtons();
   } else {
     updatePDFNameDisplay();
+  }
+  
+  // Load activity log
+  await loadActivityLog();
+  
+  // Set up activity log toggle
+  const activityLogToggle = document.getElementById('activity-log-toggle');
+  if (activityLogToggle) {
+    activityLogToggle.addEventListener('click', toggleActivityLog);
   }
 });
 
@@ -67,31 +93,59 @@ function updatePDFNameDisplay() {
     input.focus();
     input.select();
     
-    saveBtn.addEventListener('click', handleFileRename);
-    cancelBtn.addEventListener('click', cancelFilenameEdit);
+    saveBtn.addEventListener('click', (e) => {
+      e.stopPropagation(); // Prevent bubbling to parent
+      handleFileRename();
+    });
+    cancelBtn.addEventListener('click', (e) => {
+      e.stopPropagation(); // Prevent bubbling to parent
+      cancelFilenameEdit();
+    });
     
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
+        e.stopPropagation();
         handleFileRename();
       } else if (e.key === 'Escape') {
         e.preventDefault();
+        e.stopPropagation();
         cancelFilenameEdit();
       }
     });
   } else {
-    // Show clickable filename
+    // Show clickable filename with page count
     if (currentFilename) {
-      pdfNameElement.innerHTML = `<span class="filename-clickable">${escapeHtml(currentFilename)}</span>`;
+      const pageText = currentPageCount > 0 ? ` (${currentPageCount} ${currentPageCount === 1 ? 'page' : 'pages'})` : '';
+      pdfNameElement.innerHTML = `<span class="filename-clickable">${escapeHtml(currentFilename)}${pageText}</span>`;
       pdfNameElement.style.cursor = 'pointer';
     } else {
       pdfNameElement.textContent = '-- No PDF selected --';
       pdfNameElement.style.cursor = 'default';
     }
   }
+  
+  // Update Split button visibility
+  updateSplitButtonVisibility();
 }
 
-function handleFilenameClick() {
+function updateSplitButtonVisibility() {
+  const splitBtn = document.getElementById('split-btn');
+  if (splitBtn) {
+    // Show Split button only if PDF has more than 1 page
+    splitBtn.style.display = (currentPageCount > 1 && currentFilename) ? 'block' : 'none';
+  }
+}
+
+function handleFilenameClick(event) {
+  // Don't trigger if clicking on buttons or input inside
+  if (event.target.closest('.filename-save-btn') || 
+      event.target.closest('.filename-cancel-btn') || 
+      event.target.closest('.filename-input') ||
+      event.target.closest('.filename-edit-container')) {
+    return;
+  }
+  
   if (!currentFilename || editingFilename) return;
   
   editingFilename = true;
@@ -154,8 +208,9 @@ function updateNavigationButtons() {
 
 function clearDisplay() {
   currentFilename = '';
+  currentPageCount = 0;
   updatePDFNameDisplay();
-  updatePreviewTitle(null, null);
+  updateSplitButtonVisibility();
   
   const preview = document.getElementById('pdf-preview');
   preview.innerHTML = '<p class="placeholder">Select a PDF file to view</p>';
@@ -212,9 +267,17 @@ async function loadPDFPreview(filename, useCacheBust = false) {
     }
     
     preview.appendChild(pagesContainer);
+    
+    // Update page count in navigation bar
+    currentPageCount = pdf.numPages;
+    updatePDFNameDisplay();
+    updateSplitButtonVisibility();
   } catch (error) {
     console.error('Error loading PDF preview:', error);
     preview.innerHTML = '<p class="placeholder">Error loading PDF preview</p>';
+    currentPageCount = 0;
+    updatePDFNameDisplay();
+    updateSplitButtonVisibility();
   }
 }
 
@@ -223,25 +286,22 @@ async function loadPDFMetadata(filename) {
     const response = await fetch(`/api/metadata/${encodeURIComponent(filename)}`);
     const metadata = await response.json();
     
+    // Store page count for navigation bar display
+    currentPageCount = metadata.pageCount || 0;
+    updatePDFNameDisplay();
+    updateSplitButtonVisibility();
+    
     displayMetadata(metadata);
-    updatePreviewTitle(filename, metadata.pageCount);
   } catch (error) {
     console.error('Error loading metadata:', error);
     const metadataDisplay = document.getElementById('metadata-display');
     metadataDisplay.innerHTML = '<p class="placeholder">Error loading metadata</p>';
-    updatePreviewTitle(filename, null);
+    currentPageCount = 0;
+    updatePDFNameDisplay();
+    updateSplitButtonVisibility();
   }
 }
 
-function updatePreviewTitle(filename, pageCount) {
-  const previewTitle = document.getElementById('preview-title');
-  if (filename) {
-    const pageText = pageCount ? ` (${pageCount} ${pageCount === 1 ? 'page' : 'pages'})` : '';
-    previewTitle.textContent = `${filename}${pageText}`;
-  } else {
-    previewTitle.textContent = '-- No PDF selected --';
-  }
-}
 
 function escapeHtml(text) {
   const div = document.createElement('div');
@@ -267,7 +327,6 @@ function parseCommaDelimitedString(str) {
     })
     .filter(item => item.length > 0);
   
-  console.log('parseCommaDelimitedString input:', str, 'output:', result);
   return result;
 }
 
@@ -318,8 +377,6 @@ function displayMetadata(metadata) {
           }
         }
         
-        console.log('Parsing keywords for editing:', { value, keywordsArray });
-        
         html += `
           <div class="metadata-item editing">
             <div class="metadata-label">${field.label}</div>
@@ -349,22 +406,12 @@ function displayMetadata(metadata) {
         let keywordsArray = [];
         if (value) {
           if (typeof value === 'string') {
-            console.log('Display: Received string value:', value, 'Type:', typeof value, 'Has commas:', value.includes(','));
             // Split by comma only, handle quoted strings
             keywordsArray = parseCommaDelimitedString(value);
-            console.log('Display: After parsing:', keywordsArray);
-            
-            // If we got a single element with no commas in the original, it might be legacy space-separated data
-            // For display purposes, if there's only one element and the original had spaces but no commas,
-            // we should NOT split by spaces (user wants comma-delimited only)
-            // The user needs to re-save the keywords properly as comma-delimited
           } else if (Array.isArray(value)) {
-            console.log('Display: Received array value:', value);
             keywordsArray = value.filter(k => k && k.length > 0);
           }
         }
-        
-        console.log('Parsing keywords for display:', { value, keywordsArray, arrayLength: keywordsArray.length });
         
         const clickable = field.editable ? 'clickable' : '';
         
@@ -416,9 +463,6 @@ function displayMetadata(metadata) {
     }
   });
   
-  // Add separator before secondary fields
-  html += '<div class="metadata-separator"></div>';
-  
   // Render secondary editable fields
   secondaryFields.forEach(field => {
     const value = metadata[field.key];
@@ -456,9 +500,6 @@ function displayMetadata(metadata) {
       `;
     }
   });
-  
-  // Add separator before system fields
-  html += '<div class="metadata-separator"></div>';
   
   // Render system fields at bottom (smaller, not editable)
   systemFields.forEach(field => {
@@ -559,15 +600,11 @@ function displayMetadata(metadata) {
     
     // Save button handler for keywords
     if (saveBtn) {
-      console.log('Attaching keywords save handler');
       saveBtn.addEventListener('click', (e) => {
-        console.log('Keywords save button clicked');
         e.preventDefault();
         e.stopPropagation();
         handleKeywordsSave(e);
       });
-    } else {
-      console.log('Keywords save button not found');
     }
   }
 }
@@ -637,12 +674,10 @@ function updateTagIndices() {
 function getKeywordsArray() {
   const tagsContainer = document.getElementById('tags-container-keywords');
   if (!tagsContainer) {
-    console.log('Tags container not found');
     return [];
   }
   
   const tags = Array.from(tagsContainer.querySelectorAll('.tag'));
-  console.log('Found tags:', tags.length);
   
   const keywords = tags.map(tag => {
     // Clone the tag to get text without the remove button
@@ -658,7 +693,6 @@ function getKeywordsArray() {
     return text;
   }).filter(tag => tag && tag.length > 0);
   
-  console.log('Extracted keywords:', keywords);
   return keywords;
 }
 
@@ -666,15 +700,11 @@ async function handleKeywordsSave(event) {
   const keywordsArray = getKeywordsArray();
   const keywordsString = keywordsArray.join(',');
   
-  console.log('Saving keywords:', keywordsString);
-  console.log('Current filename:', currentFilename);
-  
   try {
     const requestBody = {
       field: 'keywords',
       value: keywordsString
     };
-    console.log('Request body:', requestBody);
     
     const response = await fetch(`/api/metadata/${encodeURIComponent(currentFilename)}`, {
       method: 'PUT',
@@ -683,8 +713,6 @@ async function handleKeywordsSave(event) {
       },
       body: JSON.stringify(requestBody)
     });
-    
-    console.log('Response status:', response.status);
     
     if (!response.ok) {
       let errorMessage = 'Failed to save';
@@ -710,6 +738,12 @@ async function handleKeywordsSave(event) {
     
     // Reload preview to show updated PDF (with cache busting)
     await loadPDFPreview(currentFilename, true);
+    
+    // Reload activity log if it's visible
+    const activityLogContent = document.getElementById('activity-log-content');
+    if (activityLogContent && activityLogContent.style.display !== 'none') {
+      await loadActivityLog();
+    }
   } catch (error) {
     console.error('Error saving metadata:', error);
     alert(`Error saving: ${error.message}`);
@@ -788,6 +822,12 @@ async function handleSave(event) {
     
     // Reload preview to show updated PDF (with cache busting)
     await loadPDFPreview(currentFilename, true);
+    
+    // Reload activity log if it's visible
+    const activityLogContent = document.getElementById('activity-log-content');
+    if (activityLogContent && activityLogContent.style.display !== 'none') {
+      await loadActivityLog();
+    }
   } catch (error) {
     console.error('Error saving metadata:', error);
     alert(`Error saving: ${error.message}`);
@@ -869,8 +909,311 @@ async function handleFileRename() {
     await loadPDFPreview(currentFilename);
     await loadPDFMetadata(currentFilename);
     updateNavigationButtons();
+    
+    // Reload activity log if it's visible
+    const activityLogContent = document.getElementById('activity-log-content');
+    if (activityLogContent && activityLogContent.style.display !== 'none') {
+      await loadActivityLog();
+    }
   } catch (error) {
     console.error('Error renaming file:', error);
     alert(`Error renaming file: ${error.message}`);
+  }
+}
+
+// PDF Splitter functionality
+let splitMarkers = []; // Array of page numbers where splits occur (0-indexed, after which page)
+
+async function showSplitterView(filename, metadata) {
+  // Hide main view, show splitter view
+  document.querySelector('.preview-section').style.display = 'none';
+  document.querySelector('.metadata-section').style.display = 'none';
+  document.getElementById('splitter-view').style.display = 'block';
+  
+  document.getElementById('splitter-filename').textContent = filename;
+  splitMarkers = [];
+  
+  // Load PDF and render thumbnails
+  await loadSplitterThumbnails(filename);
+  
+  // Add event listeners
+  document.getElementById('splitter-back-btn').onclick = hideSplitterView;
+  document.getElementById('splitter-execute-btn').onclick = () => executeSplit(filename, metadata);
+  document.getElementById('splitter-clear-btn').onclick = clearSplitMarkers;
+}
+
+function hideSplitterView() {
+  // Show main view, hide splitter view
+  document.querySelector('.preview-section').style.display = 'block';
+  document.querySelector('.metadata-section').style.display = 'block';
+  document.getElementById('splitter-view').style.display = 'none';
+  splitMarkers = [];
+}
+
+async function loadSplitterThumbnails(filename) {
+  const pagesContainer = document.getElementById('splitter-pages');
+  pagesContainer.innerHTML = '<p>Loading pages...</p>';
+  
+  try {
+    const pdfUrl = `/pdfs/${encodeURIComponent(filename)}`;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    
+    const loadingTask = pdfjsLib.getDocument(pdfUrl);
+    const pdf = await loadingTask.promise;
+    
+    pagesContainer.innerHTML = '';
+    
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const viewport = page.getViewport({ scale: 0.5 }); // Smaller scale for thumbnails
+      
+      // Create page wrapper
+      const pageWrapper = document.createElement('div');
+      pageWrapper.className = 'splitter-page-wrapper';
+      pageWrapper.dataset.pageNum = pageNum;
+      
+      // Create canvas for thumbnail
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+      canvas.className = 'splitter-thumbnail';
+      
+      await page.render({
+        canvasContext: context,
+        viewport: viewport
+      }).promise;
+      
+      // Create page label
+      const pageLabel = document.createElement('div');
+      pageLabel.className = 'splitter-page-label';
+      pageLabel.textContent = `Page ${pageNum}`;
+      
+      pageWrapper.appendChild(canvas);
+      pageWrapper.appendChild(pageLabel);
+      
+      // Append page wrapper first
+      pagesContainer.appendChild(pageWrapper);
+      
+      // Create split marker area AFTER the page (clickable zone between pages)
+      if (pageNum < pdf.numPages) {
+        const markerArea = document.createElement('div');
+        markerArea.className = 'splitter-marker-area';
+        markerArea.dataset.afterPage = pageNum;
+        markerArea.title = 'Click to add split marker';
+        markerArea.onclick = () => toggleSplitMarker(pageNum);
+        pagesContainer.appendChild(markerArea);
+      }
+    }
+    
+    updateSplitterUI();
+  } catch (error) {
+    console.error('Error loading PDF for splitter:', error);
+    pagesContainer.innerHTML = '<p class="placeholder">Error loading PDF</p>';
+  }
+}
+
+function toggleSplitMarker(afterPage) {
+  // afterPage is 1-indexed (page number after which to split)
+  const index = splitMarkers.indexOf(afterPage);
+  if (index === -1) {
+    splitMarkers.push(afterPage);
+  } else {
+    splitMarkers.splice(index, 1);
+  }
+  splitMarkers.sort((a, b) => a - b);
+  updateSplitterUI();
+}
+
+function clearSplitMarkers() {
+  splitMarkers = [];
+  updateSplitterUI();
+}
+
+function updateSplitterUI() {
+  // Update visual markers
+  document.querySelectorAll('.splitter-marker-area').forEach(area => {
+    const afterPage = parseInt(area.dataset.afterPage);
+    if (splitMarkers.includes(afterPage)) {
+      area.classList.add('has-marker');
+      area.textContent = '│ SPLIT │';
+    } else {
+      area.classList.remove('has-marker');
+      area.textContent = '';
+    }
+  });
+  
+  // Enable/disable execute button
+  const executeBtn = document.getElementById('splitter-execute-btn');
+  executeBtn.disabled = splitMarkers.length === 0;
+  
+  // Update button text with split count
+  if (splitMarkers.length > 0) {
+    const numFiles = splitMarkers.length + 1;
+    executeBtn.textContent = `Split into ${numFiles} files`;
+  } else {
+    executeBtn.textContent = 'Split PDF';
+  }
+}
+
+async function executeSplit(filename, metadata) {
+  if (splitMarkers.length === 0) {
+    alert('Please add at least one split marker');
+    return;
+  }
+  
+  if (!confirm(`This will split the PDF into ${splitMarkers.length + 1} file(s). Continue?`)) {
+    return;
+  }
+  
+  try {
+    const response = await fetch('/api/split', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        filename: filename,
+        splitPoints: splitMarkers, // Array of page numbers (1-indexed) after which to split
+        metadata: {
+          title: metadata.title,
+          subject: metadata.subject,
+          keywords: metadata.keywords,
+          author: metadata.author
+        }
+      })
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to split PDF');
+    }
+    
+    const result = await response.json();
+    alert(`PDF successfully split into ${result.files.length} file(s):\n${result.files.join('\n')}`);
+    
+    // Reload PDF list and return to main view
+    await loadPDFList();
+    hideSplitterView();
+    
+    // Select the first new file if available
+    if (result.files.length > 0) {
+      const firstNewFile = result.files[0];
+      if (pdfList.includes(firstNewFile)) {
+        currentIndex = pdfList.indexOf(firstNewFile);
+        currentFilename = firstNewFile;
+        await loadPDFPreview(currentFilename);
+        await loadPDFMetadata(currentFilename);
+        updatePDFNameDisplay();
+        updateNavigationButtons();
+      }
+    }
+    
+    // Reload activity log if it's visible
+    const activityLogContent = document.getElementById('activity-log-content');
+    if (activityLogContent && activityLogContent.style.display !== 'none') {
+      await loadActivityLog();
+    }
+  } catch (error) {
+    console.error('Error splitting PDF:', error);
+    alert(`Error splitting PDF: ${error.message}`);
+  }
+}
+
+// Activity Log functionality
+async function loadActivityLog() {
+  try {
+    const response = await fetch('/api/activity-log');
+    
+    if (!response.ok) {
+      // Try to get error details from response
+      let errorMessage = 'Failed to load activity log';
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        try {
+          const error = await response.json();
+          errorMessage = error.error || error.details || errorMessage;
+        } catch (e) {
+          errorMessage = response.statusText || `Server error (${response.status})`;
+        }
+      } else {
+        errorMessage = response.statusText || `Server error (${response.status})`;
+      }
+      throw new Error(errorMessage);
+    }
+    
+    const log = await response.json();
+    
+    // Ensure log is an array
+    if (!Array.isArray(log)) {
+      console.warn('Activity log is not an array, using empty array');
+      displayActivityLog([]);
+      return;
+    }
+    
+    displayActivityLog(log);
+  } catch (error) {
+    console.error('Error loading activity log:', error);
+    const entriesContainer = document.getElementById('activity-log-entries');
+    if (entriesContainer) {
+      entriesContainer.innerHTML = `<p class="placeholder">Error loading activity log: ${escapeHtml(error.message)}</p>`;
+    }
+  }
+}
+
+function displayActivityLog(log) {
+  const entriesContainer = document.getElementById('activity-log-entries');
+  if (!entriesContainer) return;
+  
+  if (!log || log.length === 0) {
+    entriesContainer.innerHTML = '<p class="placeholder">No activity recorded yet</p>';
+    return;
+  }
+  
+  const html = log.map(entry => {
+    const date = new Date(entry.timestamp);
+    const timeStr = date.toLocaleString();
+    
+    let actionText = '';
+    let details = '';
+    
+    if (entry.type === 'metadata_update') {
+      actionText = `Updated ${entry.field}`;
+      details = entry.field === 'keywords' 
+        ? `Changed keywords`
+        : `"${entry.oldValue || '(empty)'}" → "${entry.newValue || '(empty)'}"`;
+    } else if (entry.type === 'file_rename') {
+      actionText = 'Renamed file';
+      details = `"${entry.oldFilename}" → "${entry.newFilename}"`;
+    } else if (entry.type === 'pdf_split') {
+      actionText = 'Split PDF';
+      details = `Split "${entry.originalFilename}" (${entry.totalPages} pages) into ${entry.createdFiles.length} file(s)`;
+    }
+    
+    return `
+      <div class="activity-log-entry">
+        <div class="activity-log-time">${timeStr}</div>
+        <div class="activity-log-action">${actionText}</div>
+        <div class="activity-log-details">${escapeHtml(details)}</div>
+        ${entry.filename ? `<div class="activity-log-file">File: ${escapeHtml(entry.filename)}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+  
+  entriesContainer.innerHTML = html;
+}
+
+function toggleActivityLog() {
+  const content = document.getElementById('activity-log-content');
+  const icon = document.querySelector('.activity-log-toggle-icon');
+  
+  if (content.style.display === 'none') {
+    content.style.display = 'block';
+    icon.textContent = '▲';
+    // Reload log when opening
+    loadActivityLog();
+  } else {
+    content.style.display = 'none';
+    icon.textContent = '▼';
   }
 }

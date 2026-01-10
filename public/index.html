@@ -13,22 +13,49 @@
       <div class="file-selector">
         <button id="prev-btn" class="nav-btn" title="Previous PDF">‹</button>
         <div id="pdf-name" class="pdf-name">-- No PDF selected --</div>
+        <button id="split-btn" class="nav-split-btn" title="Split PDF" style="display: none;">Split</button>
         <button id="next-btn" class="nav-btn" title="Next PDF">›</button>
       </div>
     </header>
 
     <main>
       <div class="preview-section">
-        <h2 id="preview-title" class="preview-title">-- No PDF selected --</h2>
         <div id="pdf-preview" class="pdf-preview">
           <p class="placeholder">Select a PDF file to view</p>
         </div>
       </div>
 
       <div class="metadata-section">
-        <h2>Metadata</h2>
         <div id="metadata-display" class="metadata-display">
           <p class="placeholder">No file selected</p>
+        </div>
+        
+        <div class="activity-log-section">
+          <div class="activity-log-header" id="activity-log-toggle">
+            <h3>Activity Log</h3>
+            <span class="activity-log-toggle-icon">▼</span>
+          </div>
+          <div id="activity-log-content" class="activity-log-content" style="display: none;">
+            <div id="activity-log-entries" class="activity-log-entries">
+              <p class="placeholder">Loading activity log...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PDF Splitter View (hidden by default) -->
+      <div id="splitter-view" class="splitter-view" style="display: none;">
+        <div class="splitter-header">
+          <h2>Split PDF: <span id="splitter-filename"></span></h2>
+          <button id="splitter-back-btn" class="splitter-back-btn">← Back</button>
+        </div>
+        <div class="splitter-instructions">
+          <p>Click between pages to insert split markers. Each marker indicates where the PDF will be split.</p>
+        </div>
+        <div id="splitter-pages" class="splitter-pages"></div>
+        <div class="splitter-actions">
+          <button id="splitter-execute-btn" class="splitter-execute-btn" disabled>Split PDF</button>
+          <button id="splitter-clear-btn" class="splitter-clear-btn">Clear All Markers</button>
         </div>
       </div>
     </main>
