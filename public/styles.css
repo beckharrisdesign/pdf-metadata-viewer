@@ -167,6 +167,66 @@ main {
   font-style: italic;
 }
 
+.metadata-value.clickable {
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.metadata-value.clickable:hover {
+  background-color: #f0f0f0;
+}
+
+.metadata-item.editing {
+  background-color: #f8f9fa;
+  padding: 12px;
+  border-radius: 4px;
+  border: 2px solid #3498db;
+}
+
+.metadata-edit-container {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.metadata-input {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+  color: #333;
+}
+
+.metadata-input:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.save-btn {
+  padding: 6px 16px;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.save-btn:hover {
+  background-color: #2980b9;
+}
+
+.save-btn:active {
+  background-color: #21618c;
+}
+
 @media (max-width: 1024px) {
   main {
     grid-template-columns: 1fr;

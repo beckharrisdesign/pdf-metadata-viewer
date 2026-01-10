@@ -1,5 +1,5 @@
 import express from 'express';
-import { readFile, readdir } from 'fs/promises';
+import { readFile, readdir, writeFile } from 'fs/promises';
 import { PDFDocument } from 'pdf-lib';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -73,6 +73,57 @@ app.get('/pdfs/:filename', (req, res) => {
   res.sendFile(filePath);
 });
 
+// Endpoint to update PDF metadata
+app.put('/api/metadata/:filename', async (req, res) => {
+  try {
+    const filename = decodeURIComponent(req.params.filename);
+    const filePath = join(__dirname, 'pdfs', filename);
+    const { field, value } = req.body;
+    
+    console.log('Update request:', { filename, field, value });
+    
+    if (!existsSync(filePath)) {
+      console.log('File not found:', filePath);
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    if (!field) {
+      return res.status(400).json({ error: 'Field name is required' });
+    }
+
+    // Load the PDF
+    const pdfBytes = await readFile(filePath);
+    const pdfDoc = await PDFDocument.load(pdfBytes);
+    
+    // Update the specified field
+    const fieldMap = {
+      title: () => pdfDoc.setTitle(value || ''),
+      author: () => pdfDoc.setAuthor(value || ''),
+      subject: () => pdfDoc.setSubject(value || ''),
+      creator: () => pdfDoc.setCreator(value || ''),
+      producer: () => pdfDoc.setProducer(value || ''),
+      keywords: () => pdfDoc.setKeywords(value || '')
+    };
+
+    if (fieldMap[field]) {
+      fieldMap[field]();
+    } else {
+      return res.status(400).json({ error: `Field '${field}' is not editable` });
+    }
+
+    // Save the updated PDF
+    const updatedPdfBytes = await pdfDoc.save();
+    await writeFile(filePath, updatedPdfBytes);
+
+    console.log('Successfully updated:', field);
+    res.json({ success: true, message: `Updated ${field}` });
+  } catch (error) {
+    console.error('Error updating PDF metadata:', error);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ error: 'Failed to update PDF metadata', details: error.message });
+  }
+});
+
 // List available PDFs
 app.get('/api/pdfs', async (req, res) => {
   try {
@@ -90,6 +141,17 @@ app.get('/api/pdfs', async (req, res) => {
     console.error('Error listing PDFs:', error);
     res.status(500).json({ error: 'Failed to list PDFs', details: error.message });
   }
+});
+
+// Error handling middleware - must be last
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ error: 'Internal server error', details: err.message });
+});
+
+// 404 handler for API routes
+app.use('/api/*', (req, res) => {
+  res.status(404).json({ error: 'API endpoint not found' });
 });
 
 app.listen(PORT, () => {
