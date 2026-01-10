@@ -1,0 +1,10 @@
+{
+  "workbench.editorAssociations": {
+    "*.md": "vscode.markdown.preview.editor"
+  },
+  "[markdown]": {
+    "editor.defaultFormatter": null
+  },
+  "markdown.preview.openMarkdownLinks": "inPreview",
+  "markdown.preview.breaks": true
+}
