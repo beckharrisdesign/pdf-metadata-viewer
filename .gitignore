@@ -3,3 +3,4 @@ pdfs/*
 !pdfs/.gitkeep
 .env
 .DS_Store
+activity-log.json

@@ -1,5 +1,5 @@
 import express from 'express';
-import { readFile, readdir, writeFile, rename } from 'fs/promises';
+import { readFile, readdir, writeFile, rename, unlink } from 'fs/promises';
 import { PDFDocument } from 'pdf-lib';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -297,7 +297,7 @@ app.get('/api/activity-log', async (req, res) => {
   }
 });
 
-// List available PDFs
+// List available PDFs (simple list)
 app.get('/api/pdfs', async (req, res) => {
   try {
     const pdfsDir = join(__dirname, 'pdfs');
@@ -313,6 +313,141 @@ app.get('/api/pdfs', async (req, res) => {
   } catch (error) {
     console.error('Error listing PDFs:', error);
     res.status(500).json({ error: 'Failed to list PDFs', details: error.message });
+  }
+});
+
+// Get files with metadata and update counts
+app.get('/api/files-list', async (req, res) => {
+  try {
+    const pdfsDir = join(__dirname, 'pdfs');
+    
+    if (!existsSync(pdfsDir)) {
+      return res.json([]);
+    }
+
+    const files = await readdir(pdfsDir);
+    const pdfFiles = files.filter(file => file.toLowerCase().endsWith('.pdf'));
+    
+    // Load activity log to count updates per file
+    let activityLog = [];
+    if (existsSync(LOG_FILE)) {
+      try {
+        const logData = await readFile(LOG_FILE, 'utf-8');
+        if (logData && logData.trim() !== '') {
+          activityLog = JSON.parse(logData);
+        }
+      } catch (e) {
+        // Ignore log parsing errors
+      }
+    }
+    
+    // Count updates per file
+    // Count all entries that reference this file in any way
+    // This matches what would show in the activity log for that file
+    const updateCounts = {};
+    pdfFiles.forEach(filename => {
+      let count = 0;
+      activityLog.forEach(entry => {
+        // metadata_update entries have filename
+        if (entry.type === 'metadata_update' && entry.filename === filename) {
+          count++;
+        }
+        // file_rename entries - count if file is involved (old or new name)
+        else if (entry.type === 'file_rename') {
+          if (entry.oldFilename === filename || entry.newFilename === filename) {
+            count++;
+          }
+        }
+        // pdf_split entries - count if file is the original or one of the created files
+        else if (entry.type === 'pdf_split') {
+          if (entry.originalFilename === filename) {
+            count++;
+          } else if (entry.createdFiles && entry.createdFiles.includes(filename)) {
+            count++;
+          }
+        }
+        // file_delete entries have filename
+        else if (entry.type === 'file_delete' && entry.filename === filename) {
+          count++;
+        }
+      });
+      updateCounts[filename] = count;
+    });
+    
+    // Get metadata for each file
+    const filesWithMetadata = await Promise.all(
+      pdfFiles.map(async (filename) => {
+        try {
+          const filePath = join(pdfsDir, filename);
+          const pdfBytes = await readFile(filePath);
+          const pdfDoc = await PDFDocument.load(pdfBytes);
+          
+          // Get keywords
+          let keywordsRaw = pdfDoc.getKeywords() || [];
+          let keywordsArray = [];
+          if (Array.isArray(keywordsRaw)) {
+            keywordsArray = keywordsRaw;
+          } else if (typeof keywordsRaw === 'string') {
+            if (keywordsRaw.includes(',')) {
+              keywordsArray = parseCommaDelimitedString(keywordsRaw);
+            } else {
+              keywordsArray = keywordsRaw.split(/\s+/).filter(k => k.trim().length > 0);
+            }
+          }
+          const keywordsString = keywordsArray.join(',');
+          
+          return {
+            filename,
+            title: pdfDoc.getTitle() || '',
+            subject: pdfDoc.getSubject() || '',
+            author: pdfDoc.getAuthor() || '',
+            keywords: keywordsString,
+            pageCount: pdfDoc.getPageCount(),
+            updateCount: updateCounts[filename] || 0
+          };
+        } catch (error) {
+          // If we can't read metadata, return basic info
+          return {
+            filename,
+            title: '',
+            subject: '',
+            author: '',
+            keywords: '',
+            pageCount: 0,
+            updateCount: updateCounts[filename] || 0
+          };
+        }
+      })
+    );
+    
+    res.json(filesWithMetadata);
+  } catch (error) {
+    console.error('Error getting files list:', error);
+    res.status(500).json({ error: 'Failed to get files list', details: error.message });
+  }
+});
+
+// Delete a PDF file
+app.delete('/api/files/:filename', async (req, res) => {
+  try {
+    const filename = decodeURIComponent(req.params.filename);
+    const filePath = join(__dirname, 'pdfs', filename);
+    
+    if (!existsSync(filePath)) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+    
+    await unlink(filePath);
+    
+    // Log the deletion
+    await logActivity('file_delete', {
+      filename
+    });
+    
+    res.json({ success: true, message: 'File deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting file:', error);
+    res.status(500).json({ error: 'Failed to delete file', details: error.message });
   }
 });
 

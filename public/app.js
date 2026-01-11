@@ -8,47 +8,58 @@ let editingFilename = false;
 
 // Load available PDFs on page load
 document.addEventListener('DOMContentLoaded', async () => {
-  await loadPDFList();
+  // Show file list view by default
+  showFileListView();
+  await loadFileList();
   
+  // Set up file list refresh button
+  const refreshBtn = document.getElementById('refresh-list-btn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', async () => {
+      await loadFileList();
+    });
+  }
+  
+  // Set up back to list button (in header)
+  const backToListBtn = document.getElementById('back-to-list-btn');
+  if (backToListBtn) {
+    backToListBtn.addEventListener('click', () => {
+      showFileListView();
+      loadFileList();
+    });
+    // Hide button initially (only show in detail view)
+    backToListBtn.style.display = 'none';
+  }
+  
+  // Set up detail view navigation (only when in detail view)
   const prevBtn = document.getElementById('prev-btn');
   const nextBtn = document.getElementById('next-btn');
-  prevBtn.addEventListener('click', navigatePrevious);
-  nextBtn.addEventListener('click', navigateNext);
+  if (prevBtn) prevBtn.addEventListener('click', navigatePrevious);
+  if (nextBtn) nextBtn.addEventListener('click', navigateNext);
   
   // Filename click handler
   const pdfNameElement = document.getElementById('pdf-name');
-  pdfNameElement.addEventListener('click', handleFilenameClick);
+  if (pdfNameElement) {
+    pdfNameElement.addEventListener('click', handleFilenameClick);
+  }
   
   // Split button click handler
   const splitBtn = document.getElementById('split-btn');
-  splitBtn.addEventListener('click', async () => {
-    if (currentFilename) {
-      // Load metadata to pass to splitter view
-      try {
-        const response = await fetch(`/api/metadata/${encodeURIComponent(currentFilename)}`);
-        const metadata = await response.json();
-        showSplitterView(currentFilename, metadata);
-      } catch (error) {
-        console.error('Error loading metadata for splitter:', error);
-        alert('Error loading PDF metadata');
+  if (splitBtn) {
+    splitBtn.addEventListener('click', async () => {
+      if (currentFilename) {
+        // Load metadata to pass to splitter view
+        try {
+          const response = await fetch(`/api/metadata/${encodeURIComponent(currentFilename)}`);
+          const metadata = await response.json();
+          showSplitterView(currentFilename, metadata);
+        } catch (error) {
+          console.error('Error loading metadata for splitter:', error);
+          alert('Error loading PDF metadata');
+        }
       }
-    }
-  });
-  
-  // Auto-select first PDF if available
-  if (pdfList.length > 0) {
-    currentIndex = 0;
-    currentFilename = pdfList[0];
-    updatePDFNameDisplay();
-    await loadPDFPreview(pdfList[0]);
-    await loadPDFMetadata(pdfList[0]);
-    updateNavigationButtons();
-  } else {
-    updatePDFNameDisplay();
+    });
   }
-  
-  // Load activity log
-  await loadActivityLog();
   
   // Set up activity log toggle
   const activityLogToggle = document.getElementById('activity-log-toggle');
@@ -63,6 +74,186 @@ async function loadPDFList() {
     pdfList = await response.json();
   } catch (error) {
     console.error('Error loading PDF list:', error);
+  }
+}
+
+// File List View Functions
+function showFileListView() {
+  document.getElementById('file-list-view').style.display = 'block';
+  document.getElementById('detail-view').style.display = 'none';
+  document.querySelector('header').style.display = 'none';
+  // Hide back button in list view
+  const backBtn = document.getElementById('back-to-list-btn');
+  if (backBtn) backBtn.style.display = 'none';
+}
+
+function showDetailView() {
+  document.getElementById('file-list-view').style.display = 'none';
+  document.getElementById('detail-view').style.display = 'grid';
+  document.querySelector('header').style.display = 'block';
+  // Show back button in detail view
+  const backBtn = document.getElementById('back-to-list-btn');
+  if (backBtn) backBtn.style.display = 'block';
+}
+
+async function loadFileList() {
+  const container = document.getElementById('file-list-container');
+  if (!container) return;
+  
+  container.innerHTML = '<p class="placeholder">Loading files...</p>';
+  
+  try {
+    const response = await fetch('/api/files-list');
+    if (!response.ok) {
+      throw new Error('Failed to load files');
+    }
+    
+    const files = await response.json();
+    
+    if (files.length === 0) {
+      container.innerHTML = '<p class="placeholder">No PDF files found</p>';
+      return;
+    }
+    
+    // Create table
+    let html = `
+      <table class="file-list-table">
+        <thead>
+          <tr>
+            <th>Filename</th>
+            <th>Title</th>
+            <th>Subject</th>
+            <th>Keywords</th>
+            <th>Pages</th>
+            <th>Updates</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+    
+    files.forEach(file => {
+      // Parse keywords and render as tags
+      let keywordsHtml = '';
+      if (file.keywords && file.keywords.trim() !== '') {
+        const keywordsArray = parseCommaDelimitedString(file.keywords);
+        if (keywordsArray.length > 0) {
+          keywordsHtml = '<div class="tags-display">' + 
+            keywordsArray.map(keyword => 
+              `<span class="tag">${escapeHtml(keyword)}</span>`
+            ).join('') + 
+            '</div>';
+        } else {
+          keywordsHtml = '<span class="empty">(empty)</span>';
+        }
+      } else {
+        keywordsHtml = '<span class="empty">(empty)</span>';
+      }
+      
+      html += `
+        <tr>
+          <td class="file-name-cell">
+            <a href="#" class="file-name-link" data-filename="${escapeHtml(file.filename)}">${escapeHtml(file.filename)}</a>
+          </td>
+          <td class="file-metadata-cell">${escapeHtml(file.title || '(empty)')}</td>
+          <td class="file-metadata-cell">${escapeHtml(file.subject || '(empty)')}</td>
+          <td class="file-metadata-cell file-keywords-cell">${keywordsHtml}</td>
+          <td class="file-metadata-cell">${file.pageCount || 0}</td>
+          <td class="file-metadata-cell">
+            <span class="file-update-count ${file.updateCount > 0 ? 'has-updates' : ''}">
+              ${file.updateCount}
+            </span>
+          </td>
+          <td class="file-actions-cell">
+            <button class="delete-btn" data-filename="${escapeHtml(file.filename)}" title="Delete file">Delete</button>
+          </td>
+        </tr>
+      `;
+    });
+    
+    html += `
+        </tbody>
+      </table>
+    `;
+    
+    container.innerHTML = html;
+    
+    // Add click handlers for file names
+    container.querySelectorAll('.file-name-link').forEach(link => {
+      link.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const filename = e.target.dataset.filename;
+        await openFileDetail(filename);
+      });
+    });
+    
+    // Add click handlers for delete buttons
+    container.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const filename = e.target.dataset.filename;
+        await deleteFile(filename);
+      });
+    });
+  } catch (error) {
+    console.error('Error loading file list:', error);
+    container.innerHTML = '<p class="placeholder">Error loading files</p>';
+  }
+}
+
+async function openFileDetail(filename) {
+  // Load PDF list for navigation
+  await loadPDFList();
+  
+  // Find index of file
+  currentIndex = pdfList.indexOf(filename);
+  if (currentIndex === -1) {
+    currentIndex = 0;
+    if (pdfList.length > 0) {
+      filename = pdfList[0];
+    }
+  }
+  
+  currentFilename = filename;
+  
+  // Show detail view
+  showDetailView();
+  
+  // Load file preview and metadata
+  updatePDFNameDisplay();
+  await loadPDFPreview(filename);
+  await loadPDFMetadata(filename);
+  updateNavigationButtons();
+  updateSplitButtonVisibility();
+}
+
+async function deleteFile(filename) {
+  if (!confirm(`Are you sure you want to delete "${filename}"? This action cannot be undone.`)) {
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/api/files/${encodeURIComponent(filename)}`, {
+      method: 'DELETE'
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to delete file');
+    }
+    
+    // Reload file list
+    await loadFileList();
+    
+    // If we deleted the current file, go back to list view
+    if (currentFilename === filename) {
+      showFileListView();
+      currentFilename = '';
+      currentIndex = -1;
+    }
+  } catch (error) {
+    console.error('Error deleting file:', error);
+    alert(`Error deleting file: ${error.message}`);
   }
 }
 
@@ -925,10 +1116,11 @@ async function handleFileRename() {
 let splitMarkers = []; // Array of page numbers where splits occur (0-indexed, after which page)
 
 async function showSplitterView(filename, metadata) {
-  // Hide main view, show splitter view
+  // Hide detail view sections, show splitter view
   document.querySelector('.preview-section').style.display = 'none';
   document.querySelector('.metadata-section').style.display = 'none';
   document.getElementById('splitter-view').style.display = 'block';
+  document.querySelector('header').style.display = 'none'; // Hide navigation header in splitter view
   
   document.getElementById('splitter-filename').textContent = filename;
   splitMarkers = [];
@@ -943,10 +1135,11 @@ async function showSplitterView(filename, metadata) {
 }
 
 function hideSplitterView() {
-  // Show main view, hide splitter view
+  // Show detail view, hide splitter view
   document.querySelector('.preview-section').style.display = 'block';
   document.querySelector('.metadata-section').style.display = 'block';
   document.getElementById('splitter-view').style.display = 'none';
+  document.querySelector('header').style.display = 'block'; // Show navigation header again
   splitMarkers = [];
 }
 
@@ -1142,13 +1335,42 @@ async function loadActivityLog() {
       throw new Error(errorMessage);
     }
     
-    const log = await response.json();
+    let log = await response.json();
     
     // Ensure log is an array
     if (!Array.isArray(log)) {
       console.warn('Activity log is not an array, using empty array');
       displayActivityLog([]);
       return;
+    }
+    
+    // Filter log to show only entries for the current file (if viewing a file)
+    if (currentFilename) {
+      log = log.filter(entry => {
+        // metadata_update entries
+        if (entry.type === 'metadata_update' && entry.filename === currentFilename) {
+          return true;
+        }
+        // file_rename entries - show if file is involved
+        if (entry.type === 'file_rename' && 
+            (entry.oldFilename === currentFilename || entry.newFilename === currentFilename)) {
+          return true;
+        }
+        // pdf_split entries - show if file is the original or one of the created files
+        if (entry.type === 'pdf_split') {
+          if (entry.originalFilename === currentFilename) {
+            return true;
+          }
+          if (entry.createdFiles && entry.createdFiles.includes(currentFilename)) {
+            return true;
+          }
+        }
+        // file_delete entries
+        if (entry.type === 'file_delete' && entry.filename === currentFilename) {
+          return true;
+        }
+        return false;
+      });
     }
     
     displayActivityLog(log);
