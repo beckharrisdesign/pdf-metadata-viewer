@@ -1,9 +1,11 @@
+import 'dotenv/config';
 import express from 'express';
 import { readFile, readdir, writeFile, rename, unlink } from 'fs/promises';
 import { PDFDocument } from 'pdf-lib';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { existsSync } from 'fs';
+import OpenAI from 'openai';
 
 // Parse comma-delimited string, handling quoted values
 function parseCommaDelimitedString(str) {
@@ -32,8 +34,106 @@ const __dirname = dirname(__filename);
 const app = express();
 const PORT = 3000;
 
+// Initialize OpenAI client
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY || ''
+});
+
 // Activity log file path
 const LOG_FILE = join(__dirname, 'activity-log.json');
+
+// Taxonomy file paths
+const TAXONOMY_TAGS_FILE = join(__dirname, 'docs', 'pdf_organization_tags.md');
+const TAXONOMY_ENTITIES_FILE = join(__dirname, 'docs', 'tag_entity_database.md');
+const PROMPT_TEMPLATE_FILE = join(__dirname, 'docs', 'ai-prompt-template.md');
+
+// Load and cache taxonomy
+let taxonomyCache = null;
+
+async function loadTaxonomy() {
+  if (taxonomyCache) {
+    return taxonomyCache;
+  }
+
+  try {
+    const tagsContent = await readFile(TAXONOMY_TAGS_FILE, 'utf-8');
+    const entitiesContent = await readFile(TAXONOMY_ENTITIES_FILE, 'utf-8');
+
+    // Extract document types
+    const docTypesMatch = tagsContent.match(/### 1\. DOCUMENT TYPE TAGS[\s\S]*?(?=### 2\.|$)/);
+    const docTypes = docTypesMatch 
+      ? [...docTypesMatch[0].matchAll(/`([^`]+)`/g)].map(m => m[1])
+      : [];
+
+    // Extract category tags
+    const categoryMatch = tagsContent.match(/### 2\. CATEGORY TAGS[\s\S]*?(?=### 3\.|$)/);
+    const categories = categoryMatch
+      ? [...categoryMatch[0].matchAll(/`([^`]+)`/g)].map(m => m[1])
+      : [];
+
+    // Extract action tags
+    const actionMatch = tagsContent.match(/### 5\. ACTION TAGS[\s\S]*?(?=### 6\.|$)/);
+    const actions = actionMatch
+      ? [...actionMatch[0].matchAll(/`([^`]+)`/g)].map(m => m[1])
+      : [];
+
+    // Extract status tags
+    const statusMatch = tagsContent.match(/### 7\. STATUS TAGS[\s\S]*?(?=### 8\.|$)/);
+    const statuses = statusMatch
+      ? [...statusMatch[0].matchAll(/`([^`]+)`/g)].map(m => m[1])
+      : [];
+
+    // Extract special flags
+    const specialMatch = tagsContent.match(/### 8\. SPECIAL FLAGS[\s\S]*?(?=### 9\.|$)/);
+    const specials = specialMatch
+      ? [...specialMatch[0].matchAll(/`([^`]+)`/g)].map(m => m[1])
+      : [];
+
+    // Extract location tags
+    const locationMatch = tagsContent.match(/### 9\. LOCATION TAGS[\s\S]*?(?=---|$)/);
+    const locations = locationMatch
+      ? [...locationMatch[0].matchAll(/`([^`]+)`/g)].map(m => m[1])
+      : [];
+
+    // Extract people from entity database
+    const peopleMatch = entitiesContent.match(/## People Registry[\s\S]*?(?=## Vendor|$)/);
+    const people = peopleMatch
+      ? [...peopleMatch[0].matchAll(/\| `([^`]+)`/g)].map(m => m[1])
+      : [];
+
+    // Extract vendors from entity database (all vendor slugs)
+    const vendorMatches = [...entitiesContent.matchAll(/\| `([^`]+)` \|/g)];
+    const vendors = vendorMatches
+      .map(m => m[1])
+      .filter(v => !people.includes(v)); // Remove people from vendor list
+
+    taxonomyCache = {
+      documentTypes: docTypes,
+      categories: categories,
+      actions: actions,
+      statuses: statuses,
+      specials: specials,
+      locations: locations,
+      people: people,
+      vendors: vendors
+    };
+
+    return taxonomyCache;
+  } catch (error) {
+    console.error('Error loading taxonomy:', error);
+    // Return empty taxonomy if files don't exist
+    return {
+      documentTypes: [],
+      categories: [],
+      actions: [],
+      statuses: [],
+      specials: [],
+      locations: [],
+      people: [],
+      vendors: []
+    };
+  }
+}
 
 // Logging function
 async function logActivity(type, details) {
@@ -66,8 +166,8 @@ async function logActivity(type, details) {
 // Serve static files
 app.use(express.static('public'));
 
-// Parse JSON bodies
-app.use(express.json());
+// Parse JSON bodies with increased limit for image data
+app.use(express.json({ limit: '10mb' }));
 
 // Endpoint to get PDF metadata
 app.get('/api/metadata/:filename', async (req, res) => {
@@ -571,6 +671,170 @@ app.post('/api/split', async (req, res) => {
   } catch (error) {
     console.error('Error splitting PDF:', error);
     res.status(500).json({ error: 'Failed to split PDF', details: error.message });
+  }
+});
+
+// Get AI suggestions for PDF metadata
+app.post('/api/ai-suggestions/:filename', async (req, res) => {
+  try {
+    const filename = decodeURIComponent(req.params.filename);
+    const filePath = join(__dirname, 'pdfs', filename);
+    
+    if (!existsSync(filePath)) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+    
+    if (!process.env.OPENAI_API_KEY) {
+      return res.status(500).json({ error: 'OpenAI API key not configured' });
+    }
+    
+    // Get images from request body (sent from frontend)
+    const { images: pageImages } = req.body;
+    
+    if (!pageImages || !Array.isArray(pageImages) || pageImages.length === 0) {
+      return res.status(400).json({ error: 'No images provided. Please ensure the PDF preview is loaded.' });
+    }
+    
+    // Get current metadata for context
+    const pdfBytes = await readFile(filePath);
+    const pdfDoc = await PDFDocument.load(pdfBytes);
+    const currentTitle = pdfDoc.getTitle() || '';
+    const currentSubject = pdfDoc.getSubject() || '';
+    const currentKeywords = pdfDoc.getKeywords() || [];
+    const currentKeywordsStr = Array.isArray(currentKeywords) ? currentKeywords.join(', ') : String(currentKeywords);
+    
+    // Load taxonomy
+    const taxonomy = await loadTaxonomy();
+    
+    // Build taxonomy reference text
+    const taxonomyText = `
+TAGGING TAXONOMY - You MUST use these exact tag slugs:
+
+DOCUMENT TYPES (use 1-2): ${taxonomy.documentTypes.slice(0, 20).join(', ')}${taxonomy.documentTypes.length > 20 ? ' (and more)' : ''}
+
+CATEGORIES (use 1-2): ${taxonomy.categories.join(', ')}
+
+ACTIONS (use if applicable): ${taxonomy.actions.join(', ')}
+
+STATUS (use if applicable): ${taxonomy.statuses.join(', ')}
+
+SPECIAL FLAGS (use if applicable): ${taxonomy.specials.join(', ')}
+
+LOCATIONS (use if applicable): ${taxonomy.locations.join(', ')}
+
+PEOPLE (use exact slugs if found): ${taxonomy.people.join(', ')}
+
+VENDORS (use exact slugs if found, first 30): ${taxonomy.vendors.slice(0, 30).join(', ')}${taxonomy.vendors.length > 30 ? ' (and more)' : ''}
+
+CRITICAL RULES:
+- Use EXACT tag slugs from the lists above - do not create new tags
+- For people: Use format fname-mname-lname (e.g., "katherine-b-harris", "john-n-pierce")
+- For vendors: Use exact vendor slugs (e.g., "heb", "arc", "pnc", "rrisd")
+- Combine multiple tags with commas, no spaces (e.g., "receipt,grocery,heb,paid")
+- Include document type, category, vendor (if found), person (if found), and action/status tags
+- Add time period tags if date is clear (e.g., "year-2025", "month-03")
+`;
+
+    // Build content array with text prompt and images
+    const content = [
+      {
+        type: 'text',
+        text: `Analyze this scanned document image and suggest appropriate metadata values using the predefined tagging taxonomy.
+
+Current metadata:
+- Title: ${currentTitle || '(empty)'}
+- Subject: ${currentSubject || '(empty)'}
+- Keywords: ${currentKeywordsStr || '(empty)'}
+
+${taxonomyText}
+
+Please provide suggestions in JSON format with the following structure:
+{
+  "filename": "suggested-filename-without-extension",
+  "title": "concise descriptive title",
+  "subject": "document category or subject",
+  "keywords": "keyword1,keyword2,keyword3"
+}
+
+Guidelines:
+- Filename: Use format YYYY-MM-DD — Type — Subject or Vendor — Person or persons.pdf (use em dashes — to separate sections, regular dashes only between date parts YYYY-MM-DD). Required elements: Date (YYYY-MM-DD), Document Type (receipt, invoice, bill, etc.), Subject/Vendor (category like "Grocery" or vendor name in title case like "HEB", "ARC", "PNC" - use recognizable vendor name from taxonomy), and Person (if document relates to specific person like "Alexandra" or "Felix"). If no date found, start with Type. No file extension.
+- Title: Concise, descriptive title (max 100 characters)
+- Subject: Concise summary of the document based on its content (10 words or less, max 50 characters)
+- Keywords: 3-10 relevant tags as comma-separated values (NO SPACES), using EXACT slugs from the taxonomy above
+- MUST use exact tag slugs - do not invent new tags
+- Include: document type, category, vendor (if recognized), person (if found), action/status tags, and time period if date is clear
+
+Return ONLY valid JSON, no other text.`
+      }
+    ];
+    
+    // Add all page images to the content
+    pageImages.forEach(imageBase64 => {
+      content.push({
+        type: 'image_url',
+        image_url: {
+          url: `data:image/png;base64,${imageBase64}`
+        }
+      });
+    });
+    
+    // Load system message from template (or use default)
+    let systemMessage = 'You are a helpful assistant that analyzes scanned document images and suggests appropriate metadata. Always respond with valid JSON only.';
+    try {
+      const templateContent = await readFile(PROMPT_TEMPLATE_FILE, 'utf-8');
+      const systemMatch = templateContent.match(/## System Message\s*```\s*([\s\S]*?)\s*```/);
+      if (systemMatch) {
+        systemMessage = systemMatch[1].trim();
+      }
+    } catch (error) {
+      // Use default system message
+    }
+
+    // Call OpenAI Vision API
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: systemMessage
+        },
+        {
+          role: 'user',
+          content: content
+        }
+      ],
+      temperature: 0.3,
+      max_tokens: 500
+    });
+    
+    const responseText = completion.choices[0].message.content.trim();
+    
+    // Parse JSON response
+    let suggestions;
+    try {
+      // Remove any markdown code blocks if present
+      const cleanedResponse = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      suggestions = JSON.parse(cleanedResponse);
+    } catch (parseError) {
+      console.error('Error parsing AI response:', parseError);
+      console.error('Response was:', responseText);
+      return res.status(500).json({ error: 'Failed to parse AI response', details: parseError.message });
+    }
+    
+    // Validate and format suggestions
+    const result = {
+      filename: suggestions.filename || filename.replace(/\.pdf$/i, ''),
+      title: suggestions.title || '',
+      subject: suggestions.subject || '',
+      keywords: Array.isArray(suggestions.keywords) 
+        ? suggestions.keywords.join(',') 
+        : (typeof suggestions.keywords === 'string' ? suggestions.keywords : '')
+    };
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Error getting AI suggestions:', error);
+    res.status(500).json({ error: 'Failed to get AI suggestions', details: error.message });
   }
 });
 

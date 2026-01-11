@@ -56,16 +56,18 @@
 - ❌ User can configure naming pattern before splitting (not implemented)
 - ❌ AI suggests split points (Phase 2)
 
-#### ❌ Processing Tracking - NOT STARTED
-- Track processing count in metadata
-- Append note to subject field
-- Add processing tag to keywords
-- **Status**: Phase 1 - High Priority
+#### ⚠️ Processing Tracking - PARTIALLY ENABLED
+- ✅ File list view shows update counts per file (enables tracking)
+- ❌ Track processing count in metadata
+- ❌ Append note to subject field
+- ❌ Add processing tag to keywords
+- **Status**: Phase 1 - High Priority (Foundation in place with file list view)
 
-#### ❌ Duplicate Detection - NOT STARTED
-- Basic: Compare file hashes and metadata
-- Advanced: Content similarity analysis
-- **Status**: Phase 1 - High Priority
+#### ⚠️ Duplicate Detection - FOUNDATION READY
+- ✅ File list view enables visual duplicate detection
+- ❌ Automated duplicate detection (compare file hashes and metadata)
+- ❌ Content similarity analysis
+- **Status**: Phase 1 - High Priority (File list view provides foundation)
 
 #### ❌ Editing Additional Metadata Fields - PARTIALLY DONE
 - ✅ Author is editable
@@ -103,8 +105,14 @@
 1. **Core Workflow**: Fully functional document viewing and metadata editing
 2. **PDF Splitter**: Complete implementation with metadata preservation
 3. **Activity Logging**: Implemented early (was Phase 3)
-4. **File Renaming**: Bonus feature not in original PRD
-5. **Multi-page Preview**: Enhanced beyond basic preview
+4. **File List View**: Complete file management interface with metadata display
+   - Table view showing all files with metadata columns
+   - Update counts per file from activity log
+   - Keywords displayed as tags matching detail view
+   - Delete file functionality
+   - Navigation between list and detail views
+5. **File Renaming**: Bonus feature not in original PRD
+6. **Multi-page Preview**: Enhanced beyond basic preview
 
 ### 🎯 Next Priority Features (Based on PRD)
 1. **Processing Tracking** (Phase 1) - Mark processed documents
@@ -113,8 +121,8 @@
 4. **Tag Taxonomy Validation** (Core Feature) - Validate keywords against taxonomy
 
 ### 📊 Completion Status
-- **Core Features**: ~85% complete (missing AI and taxonomy validation)
-- **Phase 1**: ~40% complete (splitter done, processing tracking and duplicates pending)
+- **Core Features**: ~90% complete (file list view added, missing AI and taxonomy validation)
+- **Phase 1**: ~50% complete (splitter done, file list enables tracking/duplicates, automation pending)
 - **Phase 2**: 0% complete (AI features not started)
 - **Phase 3+**: Activity log done early, rest pending
 

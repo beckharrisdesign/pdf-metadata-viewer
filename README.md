@@ -16,14 +16,19 @@ A simple, lightweight tool for viewing PDF files and their embedded metadata. Bu
 npm install
 ```
 
-2. Place your PDF files in the `pdfs` directory
+2. Set up OpenAI API key (for AI suggestions feature):
+   - Create a `.env` file in the project root
+   - Add: `OPENAI_API_KEY=your-api-key-here`
+   - Or set the environment variable: `export OPENAI_API_KEY=your-api-key-here`
 
-3. Start the server:
+3. Place your PDF files in the `pdfs` directory
+
+4. Start the server:
 ```bash
 npm start
 ```
 
-4. Open your browser to `http://localhost:3000`
+5. Open your browser to `http://localhost:3000`
 
 ## Usage
 

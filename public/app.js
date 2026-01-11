@@ -721,7 +721,22 @@ function displayMetadata(metadata) {
     });
   }
   
+  // Add AI Suggestions button at the top
+  html = `
+    <div class="metadata-item ai-suggestions-action">
+      <button id="ai-suggestions-btn" class="ai-suggestions-btn">✨ Get AI Suggestions</button>
+    </div>
+  ` + html;
+  
   metadataDisplay.innerHTML = html;
+  
+  // Add click handler for AI suggestions button
+  const aiBtn = document.getElementById('ai-suggestions-btn');
+  if (aiBtn) {
+    aiBtn.addEventListener('click', () => {
+      requestAISuggestions(currentFilename);
+    });
+  }
   
   // Add click handlers for editable fields
   metadataDisplay.querySelectorAll('[data-editable="true"]').forEach(el => {
@@ -1438,4 +1453,247 @@ function toggleActivityLog() {
     content.style.display = 'none';
     icon.textContent = '▼';
   }
+}
+
+// AI Suggestions functionality
+async function requestAISuggestions(filename) {
+  if (!filename) {
+    alert('No file selected');
+    return;
+  }
+  
+  const suggestionsSection = document.getElementById('ai-suggestions-section');
+  const suggestionsContent = document.getElementById('ai-suggestions-content');
+  
+  // Show suggestions section
+  suggestionsSection.style.display = 'block';
+  suggestionsContent.innerHTML = '<p class="placeholder">Analyzing document and generating suggestions...</p>';
+  
+  // Scroll to suggestions
+  suggestionsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  
+  try {
+    // Capture images from the already-rendered PDF preview canvases
+    const preview = document.getElementById('pdf-preview');
+    const canvases = preview.querySelectorAll('canvas');
+    
+    if (canvases.length === 0) {
+      throw new Error('PDF preview not loaded. Please wait for the preview to load first.');
+    }
+    
+    // Convert canvases to base64 images (limit to first 3 pages)
+    const pageImages = [];
+    const maxPages = Math.min(canvases.length, 3);
+    for (let i = 0; i < maxPages; i++) {
+      const canvas = canvases[i];
+      const imageBase64 = canvas.toDataURL('image/png').split(',')[1]; // Remove data:image/png;base64, prefix
+      pageImages.push(imageBase64);
+    }
+    
+    // Send images to server
+    const response = await fetch(`/api/ai-suggestions/${encodeURIComponent(filename)}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ images: pageImages })
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to get AI suggestions');
+    }
+    
+    const suggestions = await response.json();
+    displayAISuggestions(suggestions);
+  } catch (error) {
+    console.error('Error getting AI suggestions:', error);
+    suggestionsContent.innerHTML = `<p class="placeholder error">Error: ${escapeHtml(error.message)}</p>`;
+  }
+}
+
+function displayAISuggestions(suggestions) {
+  const suggestionsContent = document.getElementById('ai-suggestions-content');
+  
+  // Parse keywords for display
+  const keywordsArray = suggestions.keywords 
+    ? parseCommaDelimitedString(suggestions.keywords)
+    : [];
+  
+  const html = `
+    <div class="ai-suggestion-item">
+      <div class="ai-suggestion-label">Filename</div>
+      <div class="ai-suggestion-value">${escapeHtml(suggestions.filename)}.pdf</div>
+      <button class="ai-apply-btn" data-field="filename" data-value="${escapeHtml(suggestions.filename)}">Apply</button>
+    </div>
+    <div class="ai-suggestion-item">
+      <div class="ai-suggestion-label">Title</div>
+      <div class="ai-suggestion-value">${escapeHtml(suggestions.title || '(empty)')}</div>
+      <button class="ai-apply-btn" data-field="title" data-value="${escapeHtml(suggestions.title || '')}">Apply</button>
+    </div>
+    <div class="ai-suggestion-item">
+      <div class="ai-suggestion-label">Subject</div>
+      <div class="ai-suggestion-value">${escapeHtml(suggestions.subject || '(empty)')}</div>
+      <button class="ai-apply-btn" data-field="subject" data-value="${escapeHtml(suggestions.subject || '')}">Apply</button>
+    </div>
+    <div class="ai-suggestion-item">
+      <div class="ai-suggestion-label">Keywords</div>
+      <div class="ai-suggestion-value">
+        ${keywordsArray.length > 0 
+          ? '<div class="tags-display">' + keywordsArray.map(k => `<span class="tag">${escapeHtml(k)}</span>`).join('') + '</div>'
+          : '<span class="empty">(empty)</span>'
+        }
+      </div>
+      <button class="ai-apply-btn" data-field="keywords" data-value="${escapeHtml(suggestions.keywords || '')}">Apply</button>
+    </div>
+    <div class="ai-suggestion-actions">
+      <button id="ai-apply-all-btn" class="ai-apply-all-btn">Apply All</button>
+    </div>
+  `;
+  
+  suggestionsContent.innerHTML = html;
+  
+  // Add click handlers for individual apply buttons
+  suggestionsContent.querySelectorAll('.ai-apply-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const field = e.target.dataset.field;
+      const value = e.target.dataset.value;
+      applyAISuggestion(field, value);
+    });
+  });
+  
+  // Add click handler for apply all
+  const applyAllBtn = document.getElementById('ai-apply-all-btn');
+  if (applyAllBtn) {
+    applyAllBtn.addEventListener('click', () => {
+      applyAllAISuggestions(suggestions);
+    });
+  }
+  
+  // Add close button handler
+  const closeBtn = document.getElementById('close-ai-suggestions-btn');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      document.getElementById('ai-suggestions-section').style.display = 'none';
+    });
+  }
+}
+
+async function applyAISuggestion(field, value) {
+  if (!currentFilename) {
+    alert('No file selected');
+    return;
+  }
+  
+  if (field === 'filename') {
+    // Handle filename separately (rename)
+    const newFilename = value.endsWith('.pdf') ? value : `${value}.pdf`;
+    try {
+      const response = await fetch(`/api/rename/${encodeURIComponent(currentFilename)}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ newFilename })
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to rename file');
+      }
+      
+      const result = await response.json();
+      currentFilename = result.newFilename || newFilename;
+      await loadPDFList();
+      currentIndex = pdfList.indexOf(currentFilename);
+      if (currentIndex === -1) {
+        currentIndex = 0;
+        if (pdfList.length > 0) {
+          currentFilename = pdfList[0];
+        }
+      }
+      
+      updatePDFNameDisplay();
+      await loadPDFPreview(currentFilename);
+      await loadPDFMetadata(currentFilename);
+      updateNavigationButtons();
+      updateSplitButtonVisibility();
+      
+      // Reload activity log if visible
+      const activityLogContent = document.getElementById('activity-log-content');
+      if (activityLogContent && activityLogContent.style.display !== 'none') {
+        await loadActivityLog();
+      }
+      
+      // Close suggestions
+      document.getElementById('ai-suggestions-section').style.display = 'none';
+    } catch (error) {
+      console.error('Error applying filename suggestion:', error);
+      alert(`Error applying suggestion: ${error.message}`);
+    }
+  } else {
+    // Handle metadata fields
+    try {
+      const response = await fetch(`/api/metadata/${encodeURIComponent(currentFilename)}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          field: field,
+          value: value
+        })
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update metadata');
+      }
+      
+      // Reload metadata
+      await loadPDFMetadata(currentFilename);
+      
+      // Reload activity log if visible
+      const activityLogContent = document.getElementById('activity-log-content');
+      if (activityLogContent && activityLogContent.style.display !== 'none') {
+        await loadActivityLog();
+      }
+    } catch (error) {
+      console.error('Error applying suggestion:', error);
+      alert(`Error applying suggestion: ${error.message}`);
+    }
+  }
+}
+
+async function applyAllAISuggestions(suggestions) {
+  if (!currentFilename) {
+    alert('No file selected');
+    return;
+  }
+  
+  // Apply filename first (if different)
+  if (suggestions.filename) {
+    const suggestedFilename = suggestions.filename.endsWith('.pdf') 
+      ? suggestions.filename 
+      : `${suggestions.filename}.pdf`;
+    
+    if (suggestedFilename !== currentFilename) {
+      await applyAISuggestion('filename', suggestions.filename);
+      // Wait a bit for rename to complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
+  
+  // Apply other metadata fields
+  const fields = ['title', 'subject', 'keywords'];
+  for (const field of fields) {
+    if (suggestions[field]) {
+      await applyAISuggestion(field, suggestions[field]);
+      // Small delay between updates
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+  }
+  
+  // Close suggestions after applying all
+  document.getElementById('ai-suggestions-section').style.display = 'none';
 }

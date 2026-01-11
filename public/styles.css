@@ -1019,6 +1019,143 @@ main {
   font-style: italic;
 }
 
+/* AI Suggestions */
+.ai-suggestions-section {
+  background: #f0f7ff;
+  border: 2px solid #3498db;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.ai-suggestions-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #3498db;
+}
+
+.ai-suggestions-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #333;
+}
+
+.close-ai-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #666;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.close-ai-btn:hover {
+  background-color: #e0e0e0;
+}
+
+.ai-suggestions-content {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.ai-suggestion-item {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 12px;
+  background: white;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+}
+
+.ai-suggestion-label {
+  font-weight: 500;
+  color: #333;
+  min-width: 80px;
+  font-size: 14px;
+}
+
+.ai-suggestion-value {
+  flex: 1;
+  color: #555;
+  font-size: 14px;
+}
+
+.ai-apply-btn {
+  padding: 6px 16px;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  white-space: nowrap;
+}
+
+.ai-apply-btn:hover {
+  background-color: #218838;
+}
+
+.ai-suggestion-actions {
+  display: flex;
+  justify-content: center;
+  padding-top: 10px;
+  border-top: 1px solid #ddd;
+  margin-top: 5px;
+}
+
+.ai-apply-all-btn {
+  padding: 10px 24px;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.ai-apply-all-btn:hover {
+  background-color: #2980b9;
+}
+
+.ai-suggestions-action {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.ai-suggestions-btn {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.ai-suggestions-btn:hover {
+  opacity: 0.9;
+}
+
 @media (max-width: 1024px) {
   main {
     grid-template-columns: 1fr;
