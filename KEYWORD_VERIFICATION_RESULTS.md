@@ -13,10 +13,10 @@
 - **Total keywords across all files:** 184
 - **Most used keywords:**
   1. `financial` - 42.3% of files (11 files)
-  2. `location-austin` - 34.6% of files (9 files)
+  2. `location-[redacted]` - 34.6% of files (9 files)
   3. `john-n-pierce` - 26.9% of files (7 files)
   4. `tax-form` - 26.9% of files (7 files)
-  5. `location-TX` - 26.9% of files (7 files)
+  5. `location-[redacted]` - 26.9% of files (7 files)
   6. `katherine-b-harris` - 23.1% of files (6 files)
   7. `keep-7yr` - 23.1% of files (6 files)
 
@@ -38,68 +38,68 @@ Found 26 PDF file(s)
 ================================================================================
 
 
-📄 2015-12-12 — Registration — Rogue — MassDOT — katherine-b-harris.pdf
-   Keywords (6): location-ma, vehicle-registration, vehicle-rogue, location-watertown, katherine-b-harris, expired
+📄 2015-12-12 — Registration — Rogue — [Government Agency] — katherine-b-harris.pdf
+   Keywords (6): location-[redacted], vehicle-registration, vehicle-rogue, location-[redacted], katherine-b-harris, expired
 
 📄 2017-12-21— Inspection Report — Rogue — Katherine.pdf
-   Keywords (6): vehicle, vehicle-rogue, location-ma, vehicle-inspection-report, expired, not-duplicate
+   Keywords (6): vehicle, vehicle-rogue, location-[redacted], vehicle-inspection-report, expired, not-duplicate
 
 📄 2019-08-25 — Receipt — Donation — John Pierce.pdf
-   Keywords (11): receipt, financial, donation, tax-deductible, keep-7yr, receipt-donation, john-n-pierce, year-2019, org-bikes-not-bombs, location-ma, location-watertown
+   Keywords (11): receipt, financial, donation, tax-deductible, keep-7yr, receipt-donation, john-n-pierce, year-2019, org-bikes-not-bombs, location-[redacted], location-[redacted]
 
 📄 2020-03-14—Invoice—Firestone Complete Auto Care—John Pierce.pdf
-   Keywords (9): invoice, vehicle, paid, location-tx, john-n-pierce, vehicle-yaris, location-austin, vendor-firestone-complete-auto-care, vehicle-maintenance
+   Keywords (9): invoice, vehicle, paid, location-[redacted], john-n-pierce, vehicle-yaris, location-[redacted], vendor-firestone-complete-auto-care, vehicle-maintenance
 
-📄 2021-10-26 — Report — Teacher Conference — felix-pierce.pdf
-   Keywords (4): school, assessment, school-bluebonnet, felix-b-pierce
+📄 2021-10-26 — Report — Teacher Conference — [Child Name].pdf
+   Keywords (4): school, assessment, school-[redacted], [child-name]
 
 📄 2022-02-01 — 1095-C — Taxes — Proof of Coverage — Katherine.pdf
-   Keywords (11): tax-form, insurance, financial, keep-7yr, active, work-numo-llc, taxes-1095-c, katherine-b-harris, location-austin, proof-of-coverage, medical
+   Keywords (11): tax-form, insurance, financial, keep-7yr, active, work-[redacted], taxes-1095-c, katherine-b-harris, location-[redacted], proof-of-coverage, medical
 
-📄 2022-02-01 — 1099-R — Upstart — john-n-pierce.pdf
-   Keywords (11): tax-form, financial, keep-7yr, taxes-1099-r, taxes-keep-7yr, work-insperity, location-austin, location-TX, taxes-2022, work-upstart, john-n-pierce
+📄 2022-02-01 — 1099-R — [Financial Institution] — john-n-pierce.pdf
+   Keywords (11): tax-form, financial, keep-7yr, taxes-1099-r, taxes-keep-7yr, work-[redacted], location-[redacted], location-[redacted], taxes-2022, work-[redacted], john-n-pierce
 
-📄 2022-02-01 — W-2 — Taxes — Upstart — john-n-pierce.pdf
-   Keywords (10): tax-form, tax, financial, john-n-pierce, needs-filing, taxes-2022, taxes-w-2, work-upstart, location-austin, location-TX
+📄 2022-02-01 — W-2 — Taxes — [Financial Institution] — john-n-pierce.pdf
+   Keywords (10): tax-form, tax, financial, john-n-pierce, needs-filing, taxes-2022, taxes-w-2, work-[redacted], location-[redacted], location-[redacted]
 
 📄 2022-02-01 — W-2 — Taxes — katherine-b-harris.pdf
-   Keywords (9): financial, katherine-b-harris, keep-7yr, taxes-2022, work-pnc-bank, location-austin, location-TX, taxes-w-2, taxes-save7yr
+   Keywords (9): financial, katherine-b-harris, keep-7yr, taxes-2022, work-[redacted], location-[redacted], location-[redacted], taxes-w-2, taxes-save7yr
 
 📄 2022-02-01— 1095-C —Tax Form —john-n-pierce.pdf
    Keywords (5): tax-form, financial, year-2022, taxes-1095, proof-of-coverage
 
-📄 2022-11-08 — form — Change in Transportation Arrangements — alexandra-pierce.pdf
-   Keywords (3): form, school, alexandra-pierce
+📄 2022-11-08 — form — Change in Transportation Arrangements — [Child Name].pdf
+   Keywords (3): form, school, [child-name]
 
-📄 2022-11-09 — Art Project — Canyon Creek — Alexandra.pdf
-   Keywords (7): alexandra-f-pierce, school-canyon-creek, teacher-barnard, grade-first, year-2022, artwork, schoolwork
+📄 2022-11-09 — Art Project — [School Name] — [Child Name].pdf
+   Keywords (7): [child-name], school-[redacted], teacher-[redacted], grade-[redacted], year-2022, artwork, schoolwork
 
-📄 2022-11-09 — Art — Alexandra.pdf
-   Keywords (7): art, abstract, painting, alexandra-f-pierce, artwork, schoolwork, year-2022
+📄 2022-11-09 — Art — [Child Name].pdf
+   Keywords (7): art, abstract, painting, [child-name], artwork, schoolwork, year-2022
 
-📄 2022-11-09 — Artwork — Canyon Creek — Alexandra.pdf
+📄 2022-11-09 — Artwork — [School Name] — [Child Name].pdf
    Keywords (2): form, art
 
-📄 2022-11-09 — Schoolwork — Alexandra — Clouds.pdf
-   Keywords (8): school, assessment, alexandra-f-pierce, school-canyon-creek, schoolwork, clouds, science, year-2022
+📄 2022-11-09 — Schoolwork — [Child Name] — Clouds.pdf
+   Keywords (8): school, assessment, [child-name], school-[redacted], schoolwork, clouds, science, year-2022
 
-📄 2022-11-09 — Schoolwork — Canyon Creek — alexandra-f-pierce.pdf
-   Keywords (6): form, school, assessment, alexandra-f-pierce, school-canyon-creek, year-2022
+📄 2022-11-09 — Schoolwork — [School Name] — [child-name].pdf
+   Keywords (6): form, school, assessment, [child-name], school-[redacted], year-2022
 
-📄 2023-01-01 — W-2 — Taxes — PNC Bank — Katherine Harris.pdf
-   Keywords (10): financial, katherine-b-harris, keep-7yr, taxes-w-2, taxes-2023, taxes-keep-7yr, location-austin, location-TX, work-pnc-bank, work-numo-llc
+📄 2023-01-01 — W-2 — Taxes — [Financial Institution] — Katherine Harris.pdf
+   Keywords (10): financial, katherine-b-harris, keep-7yr, taxes-w-2, taxes-2023, taxes-keep-7yr, location-[redacted], location-[redacted], work-[redacted], work-[redacted]
 
-📄 2023-01-01 — W-2 — Taxes — RSA Security — katherine-b-harris.pdf
-   Keywords (12): tax-form, financial, keep-7yr, taxes-2023, katherine-b-harris, taxes-w-2, location-austin, location-TX, work-rsa-security, work-archer-irm, work-numo-llc, taxes-keep-7yr
+📄 2023-01-01 — W-2 — Taxes — [Financial Institution] — katherine-b-harris.pdf
+   Keywords (12): tax-form, financial, keep-7yr, taxes-2023, katherine-b-harris, taxes-w-2, location-[redacted], location-[redacted], work-[redacted], work-[redacted], work-[redacted], taxes-keep-7yr
 
 📄 2023-01-01 — W-2 — Taxes — katherine-b-harris.pdf
-   Keywords (10): tax-form, tax, financial, katherine-b-harris, taxes-W2, work-cisco-systems, taxes-2023, taxes-save7yr, location-austin, location-TX
+   Keywords (10): tax-form, tax, financial, katherine-b-harris, taxes-W2, work-[redacted], taxes-2023, taxes-save7yr, location-[redacted], location-[redacted]
 
-📄 2023-01-03 — Statement— PNC ISP — katherine-harris.pdf
-   Keywords (7): statement, financial, katherine-harris, no-split-needed, pnc-bank-isp, vendor-pnc-bank, financial-retirement
+📄 2023-01-03 — Statement— [Financial Institution] — katherine-harris.pdf
+   Keywords (7): statement, financial, katherine-harris, no-split-needed, [redacted]-bank-isp, vendor-[redacted]-bank, financial-retirement
 
-📄 2023-02-01 — 1099-R — Tax — Upstart —john-n-pierce.pdf
-   Keywords (9): tax-form, tax, financial, john-n-pierce, work-upstart, location-austin, location-TX, taxes-1099-r, taxes-2023
+📄 2023-02-01 — 1099-R — Tax — [Financial Institution] —john-n-pierce.pdf
+   Keywords (9): tax-form, tax, financial, john-n-pierce, work-[redacted], location-[redacted], location-[redacted], taxes-1099-r, taxes-2023
 
 📄 2023-10-01 — Business Card — Perez Tree Service — Jose Perez.pdf
    Keywords (3): home, perez-tree-service, business-card
@@ -126,23 +126,23 @@ Unique keywords: 81
 
 🔝 Most Used Keywords:
     1. financial                      (11 files, 42.3%)
-    2. location-austin                (9 files, 34.6%)
+    2. location-[redacted]            (9 files, 34.6%)
     3. john-n-pierce                  (7 files, 26.9%)
     4. tax-form                       (7 files, 26.9%)
-    5. location-TX                    (7 files, 26.9%)
+    5. location-[redacted]            (7 files, 26.9%)
     6. katherine-b-harris             (6 files, 23.1%)
     7. keep-7yr                       (6 files, 23.1%)
     8. year-2022                      (5 files, 19.2%)
     9. receipt                        (4 files, 15.4%)
    10. school                         (4 files, 15.4%)
    11. taxes-w-2                      (4 files, 15.4%)
-   12. alexandra-f-pierce             (4 files, 15.4%)
+   12. [child-name]                   (4 files, 15.4%)
    13. taxes-2023                     (4 files, 15.4%)
-   14. location-ma                    (3 files, 11.5%)
+   14. location-[redacted]            (3 files, 11.5%)
    15. expired                        (3 files, 11.5%)
    16. paid                           (3 files, 11.5%)
    17. assessment                     (3 files, 11.5%)
-   18. work-numo-llc                  (3 files, 11.5%)
+   18. work-[redacted]                 (3 files, 11.5%)
    19. taxes-keep-7yr                 (3 files, 11.5%)
    20. taxes-2022                     (3 files, 11.5%)
 
@@ -162,8 +162,8 @@ Unique keywords: 81
 📋 All Unique Keywords (alphabetical):
      1. abstract                                 (1 file, 3.8%)
      2. active                                   (1 file, 3.8%)
-     3. alexandra-f-pierce                       (4 files, 15.4%)
-     4. alexandra-pierce                         (1 file, 3.8%)
+     3. [child-name]                             (4 files, 15.4%)
+     4. [child-name]                             (1 file, 3.8%)
      5. art                                      (2 files, 7.7%)
      6. artwork                                  (2 files, 7.7%)
      7. assessment                               (3 files, 11.5%)
@@ -171,11 +171,11 @@ Unique keywords: 81
      9. clouds                                   (1 file, 3.8%)
     10. donation                                 (1 file, 3.8%)
     11. expired                                  (3 files, 11.5%)
-    12. felix-b-pierce                           (1 file, 3.8%)
+    12. [child-name]                             (1 file, 3.8%)
     13. financial                                (11 files, 42.3%)
     14. financial-retirement                     (1 file, 3.8%)
     15. form                                     (3 files, 11.5%)
-    16. grade-first                              (1 file, 3.8%)
+    16. grade-[redacted]                          (1 file, 3.8%)
     17. grocery                                  (3 files, 11.5%)
     18. guardian                                 (1 file, 3.8%)
     19. heb                                      (3 files, 11.5%)
@@ -187,11 +187,11 @@ Unique keywords: 81
     25. katherine-b-harris                       (6 files, 23.1%)
     26. katherine-harris                         (1 file, 3.8%)
     27. keep-7yr                                 (6 files, 23.1%)
-    28. location-TX                              (7 files, 26.9%)
-    29. location-austin                          (9 files, 34.6%)
-    30. location-ma                              (3 files, 11.5%)
-    31. location-tx                              (1 file, 3.8%)
-    32. location-watertown                       (2 files, 7.7%)
+    28. location-[redacted]                      (7 files, 26.9%)
+    29. location-[redacted]                      (9 files, 34.6%)
+    30. location-[redacted]                      (3 files, 11.5%)
+    31. location-[redacted]                      (1 file, 3.8%)
+    32. location-[redacted]                      (2 files, 7.7%)
     33. medical                                  (2 files, 7.7%)
     34. needs-filing                             (1 file, 3.8%)
     35. no-split-needed                          (1 file, 3.8%)
@@ -200,13 +200,13 @@ Unique keywords: 81
     38. paid                                     (3 files, 11.5%)
     39. painting                                 (1 file, 3.8%)
     40. perez-tree-service                       (1 file, 3.8%)
-    41. pnc-bank-isp                             (1 file, 3.8%)
+    41. [redacted]-bank-isp                      (1 file, 3.8%)
     42. proof-of-coverage                        (2 files, 7.7%)
     43. receipt                                  (4 files, 15.4%)
     44. receipt-donation                         (1 file, 3.8%)
     45. school                                   (4 files, 15.4%)
-    46. school-bluebonnet                        (1 file, 3.8%)
-    47. school-canyon-creek                      (3 files, 11.5%)
+    46. school-[redacted]                         (1 file, 3.8%)
+    47. school-[redacted]                         (3 files, 11.5%)
     48. schoolwork                               (3 files, 11.5%)
     49. science                                  (1 file, 3.8%)
     50. statement                                (1 file, 3.8%)
@@ -222,7 +222,7 @@ Unique keywords: 81
     60. taxes-keep-7yr                           (3 files, 11.5%)
     61. taxes-save7yr                            (2 files, 7.7%)
     62. taxes-w-2                                (4 files, 15.4%)
-    63. teacher-barnard                          (1 file, 3.8%)
+    63. teacher-[redacted]                        (1 file, 3.8%)
     64. vehicle                                  (2 files, 7.7%)
     65. vehicle-inspection-report                (1 file, 3.8%)
     66. vehicle-maintenance                      (1 file, 3.8%)
@@ -230,15 +230,15 @@ Unique keywords: 81
     68. vehicle-rogue                            (2 files, 7.7%)
     69. vehicle-yaris                            (1 file, 3.8%)
     70. vendor-firestone-complete-auto-care      (1 file, 3.8%)
-    71. vendor-pnc-bank                          (1 file, 3.8%)
+    71. vendor-[redacted]-bank                   (1 file, 3.8%)
     72. vision                                   (1 file, 3.8%)
-    73. work-archer-irm                          (1 file, 3.8%)
-    74. work-cisco-systems                       (1 file, 3.8%)
-    75. work-insperity                           (1 file, 3.8%)
-    76. work-numo-llc                            (3 files, 11.5%)
-    77. work-pnc-bank                            (2 files, 7.7%)
-    78. work-rsa-security                        (1 file, 3.8%)
-    79. work-upstart                             (3 files, 11.5%)
+    73. work-[redacted]                          (1 file, 3.8%)
+    74. work-[redacted]                          (1 file, 3.8%)
+    75. work-[redacted]                          (1 file, 3.8%)
+    76. work-[redacted]                          (3 files, 11.5%)
+    77. work-[redacted]                          (2 files, 7.7%)
+    78. work-[redacted]                          (1 file, 3.8%)
+    79. work-[redacted]                          (3 files, 11.5%)
     80. year-2019                                (1 file, 3.8%)
     81. year-2022                                (5 files, 19.2%)
 
@@ -246,12 +246,12 @@ Unique keywords: 81
 
 📋 DETAILED PER-FILE BREAKDOWN
 
- 1. 2015-12-12 — Registration — Rogue — MassDOT — katherine-b-harris.pdf
+ 1. 2015-12-12 — Registration — Rogue — [Government Agency] — katherine-b-harris.pdf
     Keywords (6):
-      - location-ma                         (used in 3 files)
+      - location-[redacted]                 (used in 3 files)
       - vehicle-registration                (used in 1 file)
       - vehicle-rogue                       (used in 2 files)
-      - location-watertown                  (used in 2 files)
+      - location-[redacted]                 (used in 2 files)
       - katherine-b-harris                  (used in 6 files)
       - expired                             (used in 3 files)
 
@@ -259,7 +259,7 @@ Unique keywords: 81
     Keywords (6):
       - vehicle                             (used in 2 files)
       - vehicle-rogue                       (used in 2 files)
-      - location-ma                         (used in 3 files)
+      - location-[redacted]                 (used in 3 files)
       - vehicle-inspection-report           (used in 1 file)
       - expired                             (used in 3 files)
       - not-duplicate                       (used in 1 file)
@@ -275,27 +275,27 @@ Unique keywords: 81
       - john-n-pierce                       (used in 7 files)
       - year-2019                           (used in 1 file)
       - org-bikes-not-bombs                 (used in 1 file)
-      - location-ma                         (used in 3 files)
-      - location-watertown                  (used in 2 files)
+      - location-[redacted]                 (used in 3 files)
+      - location-[redacted]                 (used in 2 files)
 
  4. 2020-03-14—Invoice—Firestone Complete Auto Care—John Pierce.pdf
     Keywords (9):
       - invoice                             (used in 1 file)
       - vehicle                             (used in 2 files)
       - paid                                (used in 3 files)
-      - location-tx                         (used in 1 file)
+      - location-[redacted]                 (used in 1 file)
       - john-n-pierce                       (used in 7 files)
       - vehicle-yaris                       (used in 1 file)
-      - location-austin                     (used in 9 files)
+      - location-[redacted]                 (used in 9 files)
       - vendor-firestone-complete-auto-care (used in 1 file)
       - vehicle-maintenance                 (used in 1 file)
 
- 5. 2021-10-26 — Report — Teacher Conference — felix-pierce.pdf
+ 5. 2021-10-26 — Report — Teacher Conference — [Child Name].pdf
     Keywords (4):
       - school                              (used in 4 files)
       - assessment                          (used in 3 files)
-      - school-bluebonnet                   (used in 1 file)
-      - felix-b-pierce                      (used in 1 file)
+      - school-[redacted]                    (used in 1 file)
+      - [child-name]                         (used in 1 file)
 
  6. 2022-02-01 — 1095-C — Taxes — Proof of Coverage — Katherine.pdf
     Keywords (11):
@@ -304,28 +304,28 @@ Unique keywords: 81
       - financial                           (used in 11 files)
       - keep-7yr                            (used in 6 files)
       - active                              (used in 1 file)
-      - work-numo-llc                       (used in 3 files)
+      - work-[redacted]                     (used in 3 files)
       - taxes-1095-c                        (used in 1 file)
       - katherine-b-harris                  (used in 6 files)
-      - location-austin                     (used in 9 files)
+      - location-[redacted]                 (used in 9 files)
       - proof-of-coverage                   (used in 2 files)
       - medical                             (used in 2 files)
 
- 7. 2022-02-01 — 1099-R — Upstart — john-n-pierce.pdf
+ 7. 2022-02-01 — 1099-R — [Financial Institution] — john-n-pierce.pdf
     Keywords (11):
       - tax-form                            (used in 7 files)
       - financial                           (used in 11 files)
       - keep-7yr                            (used in 6 files)
       - taxes-1099-r                        (used in 2 files)
       - taxes-keep-7yr                      (used in 3 files)
-      - work-insperity                      (used in 1 file)
-      - location-austin                     (used in 9 files)
-      - location-TX                         (used in 7 files)
+      - work-[redacted]                     (used in 1 file)
+      - location-[redacted]                 (used in 9 files)
+      - location-[redacted]                 (used in 7 files)
       - taxes-2022                          (used in 3 files)
-      - work-upstart                        (used in 3 files)
+      - work-[redacted]                     (used in 3 files)
       - john-n-pierce                       (used in 7 files)
 
- 8. 2022-02-01 — W-2 — Taxes — Upstart — john-n-pierce.pdf
+ 8. 2022-02-01 — W-2 — Taxes — [Financial Institution] — john-n-pierce.pdf
     Keywords (10):
       - tax-form                            (used in 7 files)
       - tax                                 (used in 3 files)
@@ -334,9 +334,9 @@ Unique keywords: 81
       - needs-filing                        (used in 1 file)
       - taxes-2022                          (used in 3 files)
       - taxes-w-2                           (used in 4 files)
-      - work-upstart                        (used in 3 files)
-      - location-austin                     (used in 9 files)
-      - location-TX                         (used in 7 files)
+      - work-[redacted]                     (used in 3 files)
+      - location-[redacted]                 (used in 9 files)
+      - location-[redacted]                 (used in 7 files)
 
  9. 2022-02-01 — W-2 — Taxes — katherine-b-harris.pdf
     Keywords (9):
@@ -344,9 +344,9 @@ Unique keywords: 81
       - katherine-b-harris                  (used in 6 files)
       - keep-7yr                            (used in 6 files)
       - taxes-2022                          (used in 3 files)
-      - work-pnc-bank                       (used in 2 files)
-      - location-austin                     (used in 9 files)
-      - location-TX                         (used in 7 files)
+      - work-[redacted]                     (used in 2 files)
+      - location-[redacted]                 (used in 9 files)
+      - location-[redacted]                 (used in 7 files)
       - taxes-w-2                           (used in 4 files)
       - taxes-save7yr                       (used in 2 files)
 
@@ -358,58 +358,58 @@ Unique keywords: 81
       - taxes-1095                          (used in 1 file)
       - proof-of-coverage                   (used in 2 files)
 
-11. 2022-11-08 — form — Change in Transportation Arrangements — alexandra-pierce.pdf
+11. 2022-11-08 — form — Change in Transportation Arrangements — [Child Name].pdf
     Keywords (3):
       - form                                (used in 3 files)
       - school                              (used in 4 files)
-      - alexandra-pierce                    (used in 1 file)
+      - [child-name]                         (used in 1 file)
 
-12. 2022-11-09 — Art Project — Canyon Creek — Alexandra.pdf
+12. 2022-11-09 — Art Project — [School Name] — [Child Name].pdf
     Keywords (7):
-      - alexandra-f-pierce                  (used in 4 files)
-      - school-canyon-creek                 (used in 3 files)
-      - teacher-barnard                     (used in 1 file)
-      - grade-first                         (used in 1 file)
+      - [child-name]                         (used in 4 files)
+      - school-[redacted]                    (used in 3 files)
+      - teacher-[redacted]                   (used in 1 file)
+      - grade-[redacted]                     (used in 1 file)
       - year-2022                           (used in 5 files)
       - artwork                             (used in 2 files)
       - schoolwork                          (used in 3 files)
 
-13. 2022-11-09 — Art — Alexandra.pdf
+13. 2022-11-09 — Art — [Child Name].pdf
     Keywords (7):
       - art                                 (used in 2 files)
       - abstract                            (used in 1 file)
       - painting                            (used in 1 file)
-      - alexandra-f-pierce                  (used in 4 files)
+      - [child-name]                         (used in 4 files)
       - artwork                             (used in 2 files)
       - schoolwork                          (used in 3 files)
       - year-2022                           (used in 5 files)
 
-14. 2022-11-09 — Artwork — Canyon Creek — Alexandra.pdf
+14. 2022-11-09 — Artwork — [School Name] — [Child Name].pdf
     Keywords (2):
       - form                                (used in 3 files)
       - art                                 (used in 2 files)
 
-15. 2022-11-09 — Schoolwork — Alexandra — Clouds.pdf
+15. 2022-11-09 — Schoolwork — [Child Name] — Clouds.pdf
     Keywords (8):
       - school                              (used in 4 files)
       - assessment                          (used in 3 files)
-      - alexandra-f-pierce                  (used in 4 files)
-      - school-canyon-creek                 (used in 3 files)
+      - [child-name]                         (used in 4 files)
+      - school-[redacted]                    (used in 3 files)
       - schoolwork                          (used in 3 files)
       - clouds                              (used in 1 file)
       - science                             (used in 1 file)
       - year-2022                           (used in 5 files)
 
-16. 2022-11-09 — Schoolwork — Canyon Creek — alexandra-f-pierce.pdf
+16. 2022-11-09 — Schoolwork — [School Name] — [child-name].pdf
     Keywords (6):
       - form                                (used in 3 files)
       - school                              (used in 4 files)
       - assessment                          (used in 3 files)
-      - alexandra-f-pierce                  (used in 4 files)
-      - school-canyon-creek                 (used in 3 files)
+      - [child-name]                         (used in 4 files)
+      - school-[redacted]                    (used in 3 files)
       - year-2022                           (used in 5 files)
 
-17. 2023-01-01 — W-2 — Taxes — PNC Bank — Katherine Harris.pdf
+17. 2023-01-01 — W-2 — Taxes — [Financial Institution] — Katherine Harris.pdf
     Keywords (10):
       - financial                           (used in 11 files)
       - katherine-b-harris                  (used in 6 files)
@@ -417,12 +417,12 @@ Unique keywords: 81
       - taxes-w-2                           (used in 4 files)
       - taxes-2023                          (used in 4 files)
       - taxes-keep-7yr                      (used in 3 files)
-      - location-austin                     (used in 9 files)
-      - location-TX                         (used in 7 files)
-      - work-pnc-bank                       (used in 2 files)
-      - work-numo-llc                       (used in 3 files)
+      - location-[redacted]                 (used in 9 files)
+      - location-[redacted]                 (used in 7 files)
+      - work-[redacted]                     (used in 2 files)
+      - work-[redacted]                     (used in 3 files)
 
-18. 2023-01-01 — W-2 — Taxes — RSA Security — katherine-b-harris.pdf
+18. 2023-01-01 — W-2 — Taxes — [Financial Institution] — katherine-b-harris.pdf
     Keywords (12):
       - tax-form                            (used in 7 files)
       - financial                           (used in 11 files)
@@ -430,11 +430,11 @@ Unique keywords: 81
       - taxes-2023                          (used in 4 files)
       - katherine-b-harris                  (used in 6 files)
       - taxes-w-2                           (used in 4 files)
-      - location-austin                     (used in 9 files)
-      - location-TX                         (used in 7 files)
-      - work-rsa-security                   (used in 1 file)
-      - work-archer-irm                     (used in 1 file)
-      - work-numo-llc                       (used in 3 files)
+      - location-[redacted]                 (used in 9 files)
+      - location-[redacted]                 (used in 7 files)
+      - work-[redacted]                     (used in 1 file)
+      - work-[redacted]                     (used in 1 file)
+      - work-[redacted]                     (used in 3 files)
       - taxes-keep-7yr                      (used in 3 files)
 
 19. 2023-01-01 — W-2 — Taxes — katherine-b-harris.pdf
@@ -444,31 +444,31 @@ Unique keywords: 81
       - financial                           (used in 11 files)
       - katherine-b-harris                  (used in 6 files)
       - taxes-W2                            (used in 1 file)
-      - work-cisco-systems                  (used in 1 file)
+      - work-[redacted]                     (used in 1 file)
       - taxes-2023                          (used in 4 files)
       - taxes-save7yr                       (used in 2 files)
-      - location-austin                     (used in 9 files)
-      - location-TX                         (used in 7 files)
+      - location-[redacted]                 (used in 9 files)
+      - location-[redacted]                 (used in 7 files)
 
-20. 2023-01-03 — Statement— PNC ISP — katherine-harris.pdf
+20. 2023-01-03 — Statement— [Financial Institution] — katherine-harris.pdf
     Keywords (7):
       - statement                           (used in 1 file)
       - financial                           (used in 11 files)
       - katherine-harris                    (used in 1 file)
       - no-split-needed                     (used in 1 file)
-      - pnc-bank-isp                        (used in 1 file)
-      - vendor-pnc-bank                     (used in 1 file)
+      - [redacted]-bank-isp                 (used in 1 file)
+      - vendor-[redacted]-bank              (used in 1 file)
       - financial-retirement                (used in 1 file)
 
-21. 2023-02-01 — 1099-R — Tax — Upstart —john-n-pierce.pdf
+21. 2023-02-01 — 1099-R — Tax — [Financial Institution] —john-n-pierce.pdf
     Keywords (9):
       - tax-form                            (used in 7 files)
       - tax                                 (used in 3 files)
       - financial                           (used in 11 files)
       - john-n-pierce                       (used in 7 files)
-      - work-upstart                        (used in 3 files)
-      - location-austin                     (used in 9 files)
-      - location-TX                         (used in 7 files)
+      - work-[redacted]                     (used in 3 files)
+      - location-[redacted]                 (used in 9 files)
+      - location-[redacted]                 (used in 7 files)
       - taxes-1099-r                        (used in 2 files)
       - taxes-2023                          (used in 4 files)
 
