@@ -39,6 +39,18 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || ''
 });
 
+// Get PDFs directory path from environment variable or default to 'pdfs'
+function getPDFsDirectory() {
+  const pdfsDir = process.env.PDFS_DIR || 'pdfs';
+  // If it's an absolute path, use it as-is; otherwise, make it relative to project root
+  if (pdfsDir.startsWith('/') || (process.platform === 'win32' && /^[A-Z]:/.test(pdfsDir))) {
+    return pdfsDir;
+  }
+  return join(__dirname, pdfsDir);
+}
+
+const PDFS_DIR = getPDFsDirectory();
+
 // Activity log file path
 const LOG_FILE = join(__dirname, 'activity-log.json');
 
@@ -173,7 +185,7 @@ app.use(express.json({ limit: '10mb' }));
 app.get('/api/metadata/:filename', async (req, res) => {
   try {
     const filename = req.params.filename;
-    const filePath = join(__dirname, 'pdfs', filename);
+    const filePath = join(PDFS_DIR, filename);
     
     if (!existsSync(filePath)) {
       return res.status(404).json({ error: 'File not found' });
@@ -237,7 +249,7 @@ app.get('/api/metadata/:filename', async (req, res) => {
 // Serve PDF files
 app.get('/pdfs/:filename', (req, res) => {
   const filename = req.params.filename;
-  const filePath = join(__dirname, 'pdfs', filename);
+  const filePath = join(PDFS_DIR, filename);
   
   if (!existsSync(filePath)) {
     return res.status(404).send('File not found');
@@ -250,7 +262,7 @@ app.get('/pdfs/:filename', (req, res) => {
 app.put('/api/metadata/:filename', async (req, res) => {
   try {
     const filename = decodeURIComponent(req.params.filename);
-    const filePath = join(__dirname, 'pdfs', filename);
+    const filePath = join(PDFS_DIR, filename);
     const { field, value } = req.body;
     
     if (!existsSync(filePath)) {
@@ -322,8 +334,8 @@ app.post('/api/rename/:filename', async (req, res) => {
   try {
     const filename = decodeURIComponent(req.params.filename);
     const { newFilename } = req.body;
-    const oldFilePath = join(__dirname, 'pdfs', filename);
-    const newFilePath = join(__dirname, 'pdfs', newFilename);
+    const oldFilePath = join(PDFS_DIR, filename);
+    const newFilePath = join(PDFS_DIR, newFilename);
     
     if (!newFilename) {
       return res.status(400).json({ error: 'New filename is required' });
@@ -331,7 +343,7 @@ app.post('/api/rename/:filename', async (req, res) => {
     
     // Ensure new filename has .pdf extension
     const finalNewFilename = newFilename.endsWith('.pdf') ? newFilename : `${newFilename}.pdf`;
-    const finalNewFilePath = join(__dirname, 'pdfs', finalNewFilename);
+    const finalNewFilePath = join(PDFS_DIR, finalNewFilename);
     
     if (!existsSync(oldFilePath)) {
       return res.status(404).json({ error: 'File not found' });
@@ -400,7 +412,7 @@ app.get('/api/activity-log', async (req, res) => {
 // List available PDFs (simple list)
 app.get('/api/pdfs', async (req, res) => {
   try {
-    const pdfsDir = join(__dirname, 'pdfs');
+    const pdfsDir = PDFS_DIR;
     
     if (!existsSync(pdfsDir)) {
       return res.json([]);
@@ -419,7 +431,7 @@ app.get('/api/pdfs', async (req, res) => {
 // Get files with metadata and update counts
 app.get('/api/files-list', async (req, res) => {
   try {
-    const pdfsDir = join(__dirname, 'pdfs');
+    const pdfsDir = PDFS_DIR;
     
     if (!existsSync(pdfsDir)) {
       return res.json([]);
@@ -531,7 +543,7 @@ app.get('/api/files-list', async (req, res) => {
 app.delete('/api/files/:filename', async (req, res) => {
   try {
     const filename = decodeURIComponent(req.params.filename);
-    const filePath = join(__dirname, 'pdfs', filename);
+    const filePath = join(PDFS_DIR, filename);
     
     if (!existsSync(filePath)) {
       return res.status(404).json({ error: 'File not found' });
@@ -564,7 +576,7 @@ app.post('/api/split', async (req, res) => {
       return res.status(400).json({ error: 'Split points array is required' });
     }
     
-    const filePath = join(__dirname, 'pdfs', filename);
+    const filePath = join(PDFS_DIR, filename);
     if (!existsSync(filePath)) {
       return res.status(404).json({ error: 'File not found' });
     }
@@ -635,7 +647,7 @@ app.post('/api/split', async (req, res) => {
       // Generate filename with auto-numbering (001, 002, etc.)
       const fileNumber = String(i + 1).padStart(3, '0');
       let newFilename = `${baseName}-${fileNumber}.pdf`;
-      let newFilePath = join(__dirname, 'pdfs', newFilename);
+      let newFilePath = join(PDFS_DIR, newFilename);
       
       // Check if file already exists
       if (existsSync(newFilePath)) {
@@ -643,7 +655,7 @@ app.post('/api/split', async (req, res) => {
         let altNumber = 1;
         do {
           newFilename = `${baseName}-${fileNumber}-${altNumber}.pdf`;
-          newFilePath = join(__dirname, 'pdfs', newFilename);
+          newFilePath = join(PDFS_DIR, newFilename);
           altNumber++;
         } while (existsSync(newFilePath));
       }
@@ -678,7 +690,7 @@ app.post('/api/split', async (req, res) => {
 app.post('/api/ai-suggestions/:filename', async (req, res) => {
   try {
     const filename = decodeURIComponent(req.params.filename);
-    const filePath = join(__dirname, 'pdfs', filename);
+    const filePath = join(PDFS_DIR, filename);
     
     if (!existsSync(filePath)) {
       return res.status(404).json({ error: 'File not found' });
@@ -851,5 +863,6 @@ app.use('/api/*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`PDF Metadata Viewer running at http://localhost:${PORT}`);
-  console.log(`Place your PDF files in the 'pdfs' directory`);
+  console.log(`PDFs directory: ${PDFS_DIR}`);
+  console.log(`(Set PDFS_DIR environment variable to use a different location)`);
 });

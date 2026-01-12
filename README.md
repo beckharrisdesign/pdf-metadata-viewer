@@ -21,14 +21,21 @@ npm install
    - Add: `OPENAI_API_KEY=your-api-key-here`
    - Or set the environment variable: `export OPENAI_API_KEY=your-api-key-here`
 
-3. Place your PDF files in the `pdfs` directory
+3. (Optional) Configure PDFs directory:
+   - By default, PDFs are expected in the `pdfs` directory
+   - To use a different location, set the `PDFS_DIR` environment variable:
+     - Relative path: `PDFS_DIR=my-pdfs` (relative to project root)
+     - Absolute path: `PDFS_DIR=/path/to/your/pdfs`
+   - Or add to `.env`: `PDFS_DIR=/path/to/your/pdfs`
 
-4. Start the server:
+4. Place your PDF files in the configured directory (default: `pdfs`)
+
+5. Start the server:
 ```bash
 npm start
 ```
 
-5. Open your browser to `http://localhost:3000`
+6. Open your browser to `http://localhost:3000`
 
 ## Usage
 
@@ -45,7 +52,7 @@ pdf-metadata-viewer/
 │   ├── index.html     # Main HTML page
 │   ├── styles.css     # Styling
 │   └── app.js         # Client-side JavaScript
-└── pdfs/              # Place your PDF files here
+└── pdfs/              # Place your PDF files here (or set PDFS_DIR env var)
 ```
 
 ## Dependencies

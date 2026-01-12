@@ -110,6 +110,7 @@ What needs to be done:
 - `keep-permanent` - Keep permanently
 - `scan-only` - Original can be discarded after scanning
 - `original-required` - Must keep physical original
+- `needs-deleting` - Document is a mistake and should be deleted (e.g., duplicate scan)
 
 ### 6. TIME PERIOD TAGS
 Simple date-based tags for when the filename date alone isn't sufficient:
@@ -136,6 +137,7 @@ Document status:
 - `expired` - No longer valid
 - `superseded` - Replaced by newer version
 - `duplicate` - Duplicate copy
+- `possible-duplicate` - Suspected duplicate, needs verification
 - `void` - Voided document
 - `draft` - Draft version
 
@@ -143,6 +145,9 @@ Document status:
 Important markers:
 
 - `multi-doc` - Contains multiple separate documents (NEEDS SPLITTING)
+- `no-split-needed` - Document is legitimately multi-page and should not be split
+- `already-split` - Original document has been split into multiple files
+- `from-split` - Document was created from splitting another document
 - `confidential` - Contains sensitive information
 - `original-scan` - Scanned from physical original
 - `incomplete` - Missing pages or information

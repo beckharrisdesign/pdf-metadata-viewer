@@ -55,9 +55,64 @@ Managing personal and household documents after scanning/photographing is time-c
 - Documents are searchable by embedded metadata
 - Workflow is sustainable for quarterly batch processing
 
+## Critical Issues (Must Fix)
+
+### 1. Keywords Not Saving to PDF ⚠️ **CRITICAL - DEAL BREAKER**
+
+**Status:** Verified - Keywords ARE being saved, but `pdf-lib` reads them back in corrupted format  
+**Issue:** `pdf-lib`'s `getKeywords()` returns keywords as space-separated characters instead of proper array/string format  
+**Impact:** Keywords are saved correctly but cannot be read back properly, breaking the workflow  
+**Action Required:**
+- Fix keyword reading to handle corrupted format (reconstruction algorithm exists)
+- Verify keywords persist when PDF is moved or opened in other applications
+- Test with external PDF viewers to confirm keywords are actually embedded
+- Consider alternative PDF library or workaround for keyword reading
+
+### 2. Image Files Not Supported
+
+**Issue:** System ignores image files (JPG, PNG, etc.) that are not enclosed in a PDF  
+**Impact:** Many scanned documents are saved as image files, not PDFs. These cannot be processed at all  
+**Action Required:**
+- Add support for converting image files to PDFs before processing
+- Or add direct image file support in the viewer
+- Consider auto-conversion workflow
+
+## Known Bugs
+
+### 1. Naming Conventions Not Consistently Applied
+
+**Issue:** AI-generated filenames and tagging taxonomy are not consistently following the expected format  
+**Examples:**
+- Incorrect em dash usage (spaces around dashes)
+- Wrong casing (should be sentence case)
+- Missing or incorrect date formatting
+- Vendor names not matching taxonomy slugs
+
+**Action Required:**
+- Review prompt template for clarity
+- Add more explicit examples in the prompt
+- Consider adding validation/auto-correction for common mistakes
+
+### 2. Tagging Taxonomy Not Fully Enforced
+
+**Issue:** AI is not consistently using the exact tag slugs from the taxonomy  
+**Action Required:**
+- Strengthen taxonomy enforcement in prompt
+- Add post-processing validation to check tag slugs against taxonomy
+- Consider auto-correcting common tag mistakes
+
 ## Future Enhancements
 
 ### High Priority (Core Workflow Support)
+
+**Phase 0: Critical Fixes (Immediate)**
+- **Fix keyword reading bug**: Resolve `pdf-lib` keyword corruption issue
+- **Image file support**: Add support for JPG, PNG, and other image formats
+  - Convert images to PDFs before processing
+  - Or add direct image file support in viewer
+- **Auto-query AI suggestions**: Automatically query AI when file is opened, allow user to refine
+  - Faster workflow, less clicking, more efficient
+  - User can still manually trigger if needed
 
 **Phase 1: Essential Metadata Features**
 - **Editing additional metadata fields**: Support editing author, creator, producer, and custom fields
@@ -83,6 +138,10 @@ Managing personal and household documents after scanning/photographing is time-c
     - Replicate all editable metadata (title, subject, keywords, author) to each split file
     - Preserve system metadata where applicable (creator, producer)
     - Option to customize metadata per split file before execution
+  - **Automatic Split Tagging**:
+    - Original document tagged with `already-split` after splitting
+    - Generated split documents tagged with `from-split`
+    - Helps track which documents have been processed and which are originals vs. splits
   - **Future Enhancement**: AI suggests split points based on document structure
 - **Processing tracking**: Automatically mark processed documents in file metadata
   - Track processing count: Increment counter stored in metadata (e.g., custom field or tag)
@@ -104,6 +163,12 @@ Managing personal and household documents after scanning/photographing is time-c
   - Split point suggestions (detect document boundaries in multi-page PDFs)
   - Basic: Single document analysis with all suggestion types
   - Batch: Process multiple documents with progress tracking
+- **Teachable AI - Custom Field Locations**:
+  - Ability to "teach" AI where to look for specific information on repeated document types
+  - User marks date location on HEB receipt → system learns: "For HEB receipts, date is always in top-right corner"
+  - Store document type + field location mappings
+  - Use these mappings to guide AI attention
+  - Implementation: Allow user to highlight/annotate regions on document
 - **OCR text extraction**: Extract text from scanned PDFs for better AI context
   - Basic: Extract text and display in preview
   - Advanced: Use extracted text for AI suggestions (filename, title, tags, split points)
@@ -114,7 +179,22 @@ Managing personal and household documents after scanning/photographing is time-c
 
 ### Medium Priority (Workflow Enhancement)
 
-**Phase 3: Batch Processing**
+**Phase 3: UX Improvements**
+- **Document zoom feature**: Ability to zoom in/out on PDF preview for better readability
+  - Use case: Verifying dates, amounts, or other details before accepting AI suggestions
+  - Zoom controls in preview pane
+- **Rule creation system**: UI to create custom rules for document types
+  - Example: "For tax documents, always include these tags: tax-form, financial, keep-7yr"
+  - Rules apply to filename format, required tags, etc.
+  - Document-type-specific or vendor-specific rules
+  - Rule format: `IF document_type == "tax-form" THEN add tags: tax-form, financial, keep-7yr`
+- **Additional taxonomy tags**: Support for workflow-specific tags
+  - `no-split-needed` - For documents that are legitimately multi-page (not needing splitting)
+  - `possible-duplicate` - When user suspects a document might be a duplicate
+  - `needs-deleting` - For documents that are mistakes (e.g., duplicate scans)
+  - Tags already added to taxonomy, ensure they're available in UI
+
+**Phase 4: Batch Processing**
 - **Batch metadata operations**: Apply metadata changes to multiple selected documents
   - Bulk tag addition/removal
   - Bulk title/subject updates
@@ -123,7 +203,7 @@ Managing personal and household documents after scanning/photographing is time-c
   - Basic: Simple log of changes with timestamps
   - Advanced: Export log, filter by date/type, undo support
 
-**Phase 4: Reporting & Analytics**
+**Phase 5: Reporting & Analytics**
 - **Basic reporting**: Document statistics and metadata completeness
   - Document count, tag usage, metadata coverage
 - **Advanced analytics**: Trends, patterns, and insights
@@ -133,7 +213,7 @@ Managing personal and household documents after scanning/photographing is time-c
 
 ### Lower Priority (Advanced Features)
 
-**Phase 5: Cloud Integration**
+**Phase 6: Cloud Integration**
 - **Cloud directory read access**: Point tool at cloud storage (Google Drive, Dropbox, iCloud)
   - Read-only viewing and metadata editing
   - Sync metadata back to cloud files
@@ -141,7 +221,7 @@ Managing personal and household documents after scanning/photographing is time-c
   - Upload processed files
   - Manage cloud file organization
 
-**Phase 6: Automation**
+**Phase 7: Automation**
 - **Autonomous batch updates**: AI agent processes multiple documents automatically
   - Configurable rules for auto-tagging
   - User review queue for AI suggestions
