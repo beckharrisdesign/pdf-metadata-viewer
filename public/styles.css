@@ -530,6 +530,19 @@ main {
   padding: 40px 20px;
 }
 
+.loading-placeholder {
+  color: #999;
+  font-style: italic;
+  font-size: 0.9em;
+}
+
+.pagination-info {
+  margin-top: 10px;
+  text-align: center;
+  color: #666;
+  font-size: 0.9em;
+}
+
 .metadata-item {
   margin-bottom: 15px;
   padding-bottom: 15px;

@@ -113,4 +113,4 @@ You are a helpful assistant that analyzes scanned document images and suggests a
 
 - Edit this file to iterate on the prompt
 - Changes take effect after restarting the server
-- The taxonomy section is automatically generated from `pdf_organization_tags.md` and `tag_entity_database.md`
+- The taxonomy section is automatically generated from `tag_entity_database.md`

@@ -1,9 +1,148 @@
-# Tag Entity Database
+# Tag Taxonomy Database
 **Project:** PDF Organization System
 **Created:** January 9, 2026
-**Purpose:** Central registry for entities requiring unique tag slugs
+**Purpose:** Complete taxonomy registry for all tags, entities, and keywords used in PDF organization
+
+This document defines a flat (non-hierarchical) tag/keyword system for organizing PDFs. Tags can be combined freely to enable flexible searching and indexing.
 
 ---
+
+## Tag Database
+
+### 1. DOCUMENT TYPE TAGS
+These describe what kind of document it is:
+
+| Tag Slug | Description | Notes |
+|----------|-------------|-------|
+| `receipt` | Purchase receipts | - |
+| `invoice` | Billing invoices | - |
+| `statement` | Account statements, summaries | - |
+| `bill` | Bills requiring payment | - |
+| `tax-form` | Tax-related forms (W-2, 1095-C, etc.) | - |
+| `medical-record` | Medical visit notes, test results | - |
+| `prescription` | Prescription documents | - |
+| `insurance-card` | Insurance cards/verification | - |
+| `eob` | Explanation of Benefits | - |
+| `registration` | Vehicle or other registrations | - |
+| `inspection` | Vehicle inspections | - |
+| `contract` | Contracts, agreements | - |
+| `letter` | Correspondence, letters | - |
+| `form` | Forms (blank or filled) | - |
+| `report-card` | School report cards | - |
+| `assessment` | School assessments, test results | - |
+| `certificate` | Certificates, awards | - |
+| `ticket` | Event tickets, passes | - |
+| `itinerary` | Travel itineraries | - |
+| `map` | Maps, directions | - |
+| `menu` | Restaurant menus | - |
+| `flyer` | Promotional flyers, advertisements | - |
+| `instruction` | Instructions, manuals | - |
+| `warranty` | Warranty documents | - |
+| `quote` | Service quotes, estimates | - |
+
+### 2. CATEGORY TAGS
+Broad subject area:
+
+| Tag Slug | Description | Notes |
+|----------|-------------|-------|
+| `medical` | Healthcare related | - |
+| `dental` | Dental care | - |
+| `vision` | Vision/eye care | - |
+| `veterinary` | Pet medical care | - |
+| `financial` | Banking, investments, loans | - |
+| `tax` | Tax documents | - |
+| `insurance` | Insurance (health, auto, home, life) | - |
+| `school` | K-12 education | - |
+| `camp` | Summer camps, activities | - |
+| `vehicle` | Car/vehicle related | - |
+| `home` | Home maintenance, services | - |
+| `utilities` | Electric, water, gas, internet | - |
+| `hoa` | Homeowner association | - |
+| `retail` | Shopping, purchases | - |
+| `grocery` | Food shopping | - |
+| `restaurant` | Dining out | - |
+| `travel` | Travel, lodging, transportation | - |
+| `entertainment` | Entertainment, recreation | - |
+| `membership` | Memberships, subscriptions | - |
+| `employment` | Work, payroll, benefits | - |
+| `legal` | Legal documents | - |
+| `government` | Government agencies, DMV, IRS | - |
+
+### 3. STATUS/ACTION TAGS
+Document status and required actions:
+
+| Tag Slug | Description | Category | Notes |
+|----------|-------------|----------|-------|
+| `needs-filing` | Awaiting permanent filing | Action/Workflow | - |
+| `needs-payment` | Bill needs to be paid | Action/Workflow | - |
+| `paid` | Already paid | Action/Workflow | - |
+| `reimbursable` | Can be reimbursed | Action/Workflow | - |
+| `tax-deductible` | Tax deductible expense | Action/Workflow | - |
+| `follow-up-needed` | Requires follow-up action | Action/Workflow | - |
+| `keep-annual` | Keep for 1 year | Retention | - |
+| `keep-7yr` | Keep for 7 years (tax requirement) | Retention | - |
+| `keep-permanent` | Keep permanently | Retention | - |
+| `scan-only` | Original can be discarded after scanning | Retention | - |
+| `original-required` | Must keep physical original | Retention | - |
+| `active` | Currently active/relevant | Document State | - |
+| `expired` | No longer valid | Document State | - |
+| `superseded` | Replaced by newer version | Document State | - |
+| `duplicate` | Duplicate copy | Document State | - |
+| `possible-duplicate` | Suspected duplicate, needs verification | Document State | - |
+| `void` | Voided document | Document State | - |
+| `draft` | Draft version | Document State | - |
+| `needs-deleting` | Document is a mistake and should be deleted (e.g., duplicate scan) | Document State | - |
+
+### 4. TIME PERIOD TAGS
+Simple date-based tags for when the filename date alone isn't sufficient. These are dynamically generated based on document dates.
+
+| Tag Pattern | Description | Format | Example |
+|-------------|-------------|--------|---------|
+| `year-YYYY` | Calendar year | YYYY = 4-digit year | `year-2024`, `year-2025` |
+| `month-MM` | Month of year | MM = 01-12 | `month-01` (January), `month-12` (December) |
+| `week-WW` | Week of year | WW = 01-52 | `week-01`, `week-26` |
+| `day-DD` | Day of month | DD = 01-31 | `day-01`, `day-15` |
+
+**Notes:** 
+- Combine as needed: `year-2024 month-03` for March 2024
+- Week numbers follow ISO 8601 (week starting Monday)
+- Use filename dates for primary dating; these tags are for additional context or grouping
+- These tags are generated automatically based on document dates, not manually added
+
+### 5. SPECIAL FLAGS
+Important markers:
+
+| Tag Slug | Description | Notes |
+|----------|-------------|-------|
+| `multi-doc` | Contains multiple separate documents (NEEDS SPLITTING) | - |
+| `no-split-needed` | Document is legitimately multi-page and should not be split | - |
+| `already-split` | Original document has been split into multiple files | - |
+| `from-split` | Document was created from splitting another document | - |
+| `confidential` | Contains sensitive information | - |
+| `original-scan` | Scanned from physical original | - |
+| `incomplete` | Missing pages or information | - |
+| `illegible` | Poor quality, hard to read | - |
+| `warranty-active` | Active warranty | - |
+| `recurring` | Recurring service/subscription | - |
+
+### 6. LOCATION TAGS
+Geographic location where document originated (useful for tracking across moves):
+
+| Tag Slug | Description | Level | Notes |
+|----------|-------------|-------|-------|
+| `location-watertown-ma` | Watertown, Massachusetts residence | City | - |
+| `location-austin-tx` | Austin, Texas residence | City | - |
+| `location-ma` | Massachusetts (state level) | State | - |
+| `location-tx` | Texas (state level) | State | - |
+
+**Usage Notes:**
+- Use specific city tags when the exact location matters (different addresses, services)
+- Use state tags for general regional identification
+- Helpful for tracking documents across moves, state-specific tax forms, regional services
+
+---
+
+## Entity Registries
 
 ## People Registry
 
@@ -32,7 +171,7 @@ Each person gets a unique slug based on: `fname-mname-lname` (use 'x' if middle 
 
 ---
 
-## Vendor/Provider Registry
+## Vendor/Provider/Organization Registry
 
 Standardized vendor slugs for consistency. Group by category for easy reference.
 
@@ -188,6 +327,40 @@ Standardized vendor slugs for consistency. Group by category for easy reference.
 
 ---
 
+## Tagging Examples
+
+**Example 1:** HEB grocery receipt from March 2025
+```
+Tags: receipt, grocery, retail, heb, katherine-b-harris, paid, scan-only, year-2025, month-03
+```
+
+**Example 2:** Alexandra's school report card
+```
+Tags: report-card, school, rrisd, alexandra-f-pierce, keep-permanent, year-2025
+```
+
+**Example 3:** PNC tax form 1095-C
+```
+Tags: tax-form, financial, insurance, pnc, john-m-pierce, katherine-b-harris, year-2024, keep-7yr
+```
+
+**Example 4:** Multi-page medical bill with multiple family members
+```
+Tags: bill, statement, medical, arc, katherine-b-harris, felix-b-pierce, needs-payment, multi-doc, keep-7yr
+```
+
+**Example 5:** Vehicle inspection
+```
+Tags: inspection, vehicle, firestone, john-m-pierce, keep-annual, paid, year-2025
+```
+
+**Example 6:** Donation receipt from Massachusetts residence
+```
+Tags: receipt, tax-form, donation, bikes-not-bombs, john-n-pierce, keep-7yr, year-2019, location-watertown-ma
+```
+
+---
+
 ## Usage Instructions
 
 ### Adding New Entities
@@ -222,6 +395,7 @@ Otherwise, use the generic vendor tag.
 ---
 
 ## Revision History
+- v2.0 - January 16, 2026 - Consolidated all taxonomy tags (document types, categories, actions, statuses, specials, locations) into single database file
 - v1.8 - January 9, 2026 - Added Wilbur R. Pierce (pet dog) to People Registry and Ortho360 Orthodontics to Medical providers
 - v1.7 - January 9, 2026 - Added ARC Wilson Parke location and Spectrum Association Management
 - v1.6 - January 9, 2026 - Added Bikes Not Bombs to Nonprofit & Charitable Organizations category

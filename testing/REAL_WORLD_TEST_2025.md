@@ -147,7 +147,7 @@ THEN
 - `needs-deleting` - For documents that are mistakes (e.g., duplicate scans)
 
 **Action Required:**
-- Add these tags to taxonomy (`docs/pdf_organization_tags.md`)
+- Add these tags to taxonomy (`docs/tag_entity_database.md`)
 - Update prompt template to include these tags
 - Ensure they're available in the UI
 

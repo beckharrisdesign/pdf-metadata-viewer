@@ -28,7 +28,7 @@ async function testAISuggestions() {
   await page.goto('http://localhost:3000', { waitUntil: 'networkidle2' });
   
   // Get list of PDFs
-  const pdfsDir = join(__dirname, 'pdfs');
+  const pdfsDir = join(__dirname, '..', 'pdfs');
   const files = (await readdir(pdfsDir)).filter(f => f.endsWith('.pdf')).slice(0, 5);
   
   console.log(`Testing ${files.length} PDFs:\n`);

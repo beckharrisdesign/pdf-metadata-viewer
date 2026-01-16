@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { existsSync } from 'fs';
 import OpenAI from 'openai';
+import { loadTaxonomy } from './lib/taxonomy-loader.js';
 
 // Parse comma-delimited string, handling quoted values
 function parseCommaDelimitedString(str) {
@@ -54,98 +55,8 @@ const PDFS_DIR = getPDFsDirectory();
 // Activity log file path
 const LOG_FILE = join(__dirname, 'activity-log.json');
 
-// Taxonomy file paths
-const TAXONOMY_TAGS_FILE = join(__dirname, 'docs', 'pdf_organization_tags.md');
-const TAXONOMY_ENTITIES_FILE = join(__dirname, 'docs', 'tag_entity_database.md');
+// Template file path
 const PROMPT_TEMPLATE_FILE = join(__dirname, 'docs', 'ai-prompt-template.md');
-
-// Load and cache taxonomy
-let taxonomyCache = null;
-
-async function loadTaxonomy() {
-  if (taxonomyCache) {
-    return taxonomyCache;
-  }
-
-  try {
-    const tagsContent = await readFile(TAXONOMY_TAGS_FILE, 'utf-8');
-    const entitiesContent = await readFile(TAXONOMY_ENTITIES_FILE, 'utf-8');
-
-    // Extract document types
-    const docTypesMatch = tagsContent.match(/### 1\. DOCUMENT TYPE TAGS[\s\S]*?(?=### 2\.|$)/);
-    const docTypes = docTypesMatch 
-      ? [...docTypesMatch[0].matchAll(/`([^`]+)`/g)].map(m => m[1])
-      : [];
-
-    // Extract category tags
-    const categoryMatch = tagsContent.match(/### 2\. CATEGORY TAGS[\s\S]*?(?=### 3\.|$)/);
-    const categories = categoryMatch
-      ? [...categoryMatch[0].matchAll(/`([^`]+)`/g)].map(m => m[1])
-      : [];
-
-    // Extract action tags
-    const actionMatch = tagsContent.match(/### 5\. ACTION TAGS[\s\S]*?(?=### 6\.|$)/);
-    const actions = actionMatch
-      ? [...actionMatch[0].matchAll(/`([^`]+)`/g)].map(m => m[1])
-      : [];
-
-    // Extract status tags
-    const statusMatch = tagsContent.match(/### 7\. STATUS TAGS[\s\S]*?(?=### 8\.|$)/);
-    const statuses = statusMatch
-      ? [...statusMatch[0].matchAll(/`([^`]+)`/g)].map(m => m[1])
-      : [];
-
-    // Extract special flags
-    const specialMatch = tagsContent.match(/### 8\. SPECIAL FLAGS[\s\S]*?(?=### 9\.|$)/);
-    const specials = specialMatch
-      ? [...specialMatch[0].matchAll(/`([^`]+)`/g)].map(m => m[1])
-      : [];
-
-    // Extract location tags
-    const locationMatch = tagsContent.match(/### 9\. LOCATION TAGS[\s\S]*?(?=---|$)/);
-    const locations = locationMatch
-      ? [...locationMatch[0].matchAll(/`([^`]+)`/g)].map(m => m[1])
-      : [];
-
-    // Extract people from entity database
-    const peopleMatch = entitiesContent.match(/## People Registry[\s\S]*?(?=## Vendor|$)/);
-    const people = peopleMatch
-      ? [...peopleMatch[0].matchAll(/\| `([^`]+)`/g)].map(m => m[1])
-      : [];
-
-    // Extract vendors from entity database (all vendor slugs)
-    const vendorMatches = [...entitiesContent.matchAll(/\| `([^`]+)` \|/g)];
-    const vendors = vendorMatches
-      .map(m => m[1])
-      .filter(v => !people.includes(v)); // Remove people from vendor list
-
-    taxonomyCache = {
-      documentTypes: docTypes,
-      categories: categories,
-      actions: actions,
-      statuses: statuses,
-      specials: specials,
-      locations: locations,
-      people: people,
-      vendors: vendors
-    };
-
-    return taxonomyCache;
-  } catch (error) {
-    console.error('Error loading taxonomy:', error);
-    // Return empty taxonomy if files don't exist
-    return {
-      documentTypes: [],
-      categories: [],
-      actions: [],
-      statuses: [],
-      specials: [],
-      locations: [],
-      people: [],
-      vendors: []
-    };
-  }
-}
 
 // Logging function
 async function logActivity(type, details) {
@@ -428,111 +339,153 @@ app.get('/api/pdfs', async (req, res) => {
   }
 });
 
-// Get files with metadata and update counts
+// Get files with metadata and update counts (optimized for large directories)
 app.get('/api/files-list', async (req, res) => {
   try {
     const pdfsDir = PDFS_DIR;
+    const { limit, offset, metadata } = req.query;
+    const includeMetadata = metadata !== 'false'; // Default to true for backward compatibility
+    const limitNum = limit ? parseInt(limit, 10) : null;
+    const offsetNum = offset ? parseInt(offset, 10) : 0;
     
     if (!existsSync(pdfsDir)) {
       return res.json([]);
     }
 
     const files = await readdir(pdfsDir);
-    const pdfFiles = files.filter(file => file.toLowerCase().endsWith('.pdf'));
+    let pdfFiles = files.filter(file => file.toLowerCase().endsWith('.pdf'));
     
-    // Load activity log to count updates per file
-    let activityLog = [];
-    if (existsSync(LOG_FILE)) {
-      try {
-        const logData = await readFile(LOG_FILE, 'utf-8');
-        if (logData && logData.trim() !== '') {
-          activityLog = JSON.parse(logData);
-        }
-      } catch (e) {
-        // Ignore log parsing errors
-      }
+    // Sort by filename (most recent first if dates in filename)
+    pdfFiles.sort((a, b) => b.localeCompare(a));
+    
+    // Apply pagination if requested
+    const totalFiles = pdfFiles.length;
+    if (limitNum) {
+      pdfFiles = pdfFiles.slice(offsetNum, offsetNum + limitNum);
     }
     
-    // Count updates per file
-    // Count all entries that reference this file in any way
-    // This matches what would show in the activity log for that file
-    const updateCounts = {};
-    pdfFiles.forEach(filename => {
-      let count = 0;
-      activityLog.forEach(entry => {
-        // metadata_update entries have filename
-        if (entry.type === 'metadata_update' && entry.filename === filename) {
-          count++;
-        }
-        // file_rename entries - count if file is involved (old or new name)
-        else if (entry.type === 'file_rename') {
-          if (entry.oldFilename === filename || entry.newFilename === filename) {
-            count++;
-          }
-        }
-        // pdf_split entries - count if file is the original or one of the created files
-        else if (entry.type === 'pdf_split') {
-          if (entry.originalFilename === filename) {
-            count++;
-          } else if (entry.createdFiles && entry.createdFiles.includes(filename)) {
-            count++;
-          }
-        }
-        // file_delete entries have filename
-        else if (entry.type === 'file_delete' && entry.filename === filename) {
-          count++;
-        }
-      });
-      updateCounts[filename] = count;
-    });
-    
-    // Get metadata for each file
-    const filesWithMetadata = await Promise.all(
-      pdfFiles.map(async (filename) => {
+    // Load activity log to count updates per file (only if metadata is requested)
+    let activityLog = [];
+    let updateCounts = {};
+    if (includeMetadata) {
+      if (existsSync(LOG_FILE)) {
         try {
-          const filePath = join(pdfsDir, filename);
-          const pdfBytes = await readFile(filePath);
-          const pdfDoc = await PDFDocument.load(pdfBytes);
-          
-          // Get keywords
-          let keywordsRaw = pdfDoc.getKeywords() || [];
-          let keywordsArray = [];
-          if (Array.isArray(keywordsRaw)) {
-            keywordsArray = keywordsRaw;
-          } else if (typeof keywordsRaw === 'string') {
-            if (keywordsRaw.includes(',')) {
-              keywordsArray = parseCommaDelimitedString(keywordsRaw);
-            } else {
-              keywordsArray = keywordsRaw.split(/\s+/).filter(k => k.trim().length > 0);
-            }
+          const logData = await readFile(LOG_FILE, 'utf-8');
+          if (logData && logData.trim() !== '') {
+            activityLog = JSON.parse(logData);
           }
-          const keywordsString = keywordsArray.join(',');
-          
-          return {
-            filename,
-            title: pdfDoc.getTitle() || '',
-            subject: pdfDoc.getSubject() || '',
-            author: pdfDoc.getAuthor() || '',
-            keywords: keywordsString,
-            pageCount: pdfDoc.getPageCount(),
-            updateCount: updateCounts[filename] || 0
-          };
-        } catch (error) {
-          // If we can't read metadata, return basic info
-          return {
-            filename,
-            title: '',
-            subject: '',
-            author: '',
-            keywords: '',
-            pageCount: 0,
-            updateCount: updateCounts[filename] || 0
-          };
+        } catch (e) {
+          // Ignore log parsing errors
         }
-      })
-    );
+      }
+      
+      // Count updates per file (only for files we're returning)
+      pdfFiles.forEach(filename => {
+        let count = 0;
+        activityLog.forEach(entry => {
+          if (entry.type === 'metadata_update' && entry.filename === filename) {
+            count++;
+          } else if (entry.type === 'file_rename') {
+            if (entry.oldFilename === filename || entry.newFilename === filename) {
+              count++;
+            }
+          } else if (entry.type === 'pdf_split') {
+            if (entry.originalFilename === filename) {
+              count++;
+            } else if (entry.createdFiles && entry.createdFiles.includes(filename)) {
+              count++;
+            }
+          } else if (entry.type === 'file_delete' && entry.filename === filename) {
+            count++;
+          }
+        });
+        updateCounts[filename] = count;
+      });
+    }
     
-    res.json(filesWithMetadata);
+    // If metadata not requested, return just filenames quickly
+    if (!includeMetadata) {
+      const filesList = pdfFiles.map(filename => ({
+        filename,
+        title: '',
+        subject: '',
+        author: '',
+        keywords: '',
+        pageCount: 0,
+        updateCount: 0
+      }));
+      return res.json({
+        files: filesList,
+        total: totalFiles,
+        limit: limitNum,
+        offset: offsetNum
+      });
+    }
+    
+    // Get metadata for each file (with concurrency limit for performance)
+    const CONCURRENCY_LIMIT = 10; // Process 10 files at a time
+    const filesWithMetadata = [];
+    
+    for (let i = 0; i < pdfFiles.length; i += CONCURRENCY_LIMIT) {
+      const batch = pdfFiles.slice(i, i + CONCURRENCY_LIMIT);
+      const batchResults = await Promise.all(
+        batch.map(async (filename) => {
+          try {
+            const filePath = join(pdfsDir, filename);
+            const pdfBytes = await readFile(filePath);
+            const pdfDoc = await PDFDocument.load(pdfBytes);
+            
+            // Get keywords
+            let keywordsRaw = pdfDoc.getKeywords() || [];
+            let keywordsArray = [];
+            if (Array.isArray(keywordsRaw)) {
+              keywordsArray = keywordsRaw;
+            } else if (typeof keywordsRaw === 'string') {
+              if (keywordsRaw.includes(',')) {
+                keywordsArray = parseCommaDelimitedString(keywordsRaw);
+              } else {
+                keywordsArray = keywordsRaw.split(/\s+/).filter(k => k.trim().length > 0);
+              }
+            }
+            const keywordsString = keywordsArray.join(',');
+            
+            return {
+              filename,
+              title: pdfDoc.getTitle() || '',
+              subject: pdfDoc.getSubject() || '',
+              author: pdfDoc.getAuthor() || '',
+              keywords: keywordsString,
+              pageCount: pdfDoc.getPageCount(),
+              updateCount: updateCounts[filename] || 0
+            };
+          } catch (error) {
+            // If we can't read metadata, return basic info
+            return {
+              filename,
+              title: '',
+              subject: '',
+              author: '',
+              keywords: '',
+              pageCount: 0,
+              updateCount: updateCounts[filename] || 0
+            };
+          }
+        })
+      );
+      filesWithMetadata.push(...batchResults);
+    }
+    
+    // Return with pagination info if pagination was used
+    if (limitNum) {
+      res.json({
+        files: filesWithMetadata,
+        total: totalFiles,
+        limit: limitNum,
+        offset: offsetNum
+      });
+    } else {
+      res.json(filesWithMetadata);
+    }
   } catch (error) {
     console.error('Error getting files list:', error);
     res.status(500).json({ error: 'Failed to get files list', details: error.message });
@@ -623,19 +576,46 @@ app.post('/api/split', async (req, res) => {
       pages.forEach(page => newPdf.addPage(page));
       
       // Preserve metadata
+      let keywordsArray = [];
+      if (metadata && metadata.keywords) {
+        // Use provided keywords
+        keywordsArray = typeof metadata.keywords === 'string'
+          ? metadata.keywords.split(',').map(k => k.trim()).filter(k => k.length > 0)
+          : (Array.isArray(metadata.keywords) ? metadata.keywords : []);
+      } else {
+        // Preserve original keywords from source PDF
+        const sourceKeywords = sourcePdf.getKeywords() || [];
+        if (Array.isArray(sourceKeywords)) {
+          keywordsArray = [...sourceKeywords];
+        } else if (typeof sourceKeywords === 'string') {
+          keywordsArray = sourceKeywords.includes(',')
+            ? parseCommaDelimitedString(sourceKeywords)
+            : sourceKeywords.split(/\s+/).filter(k => k.trim().length > 0);
+        }
+      }
+      
+      // Add 'from-split' tag to split files (if not already present)
+      if (!keywordsArray.includes('from-split')) {
+        keywordsArray.push('from-split');
+      }
+      
       if (metadata) {
         if (metadata.title) newPdf.setTitle(metadata.title);
         if (metadata.subject) newPdf.setSubject(metadata.subject);
         if (metadata.author) newPdf.setAuthor(metadata.author);
-        if (metadata.keywords) {
-          // Keywords should be an array
-          const keywordsArray = typeof metadata.keywords === 'string'
-            ? metadata.keywords.split(',').map(k => k.trim()).filter(k => k.length > 0)
-            : (Array.isArray(metadata.keywords) ? metadata.keywords : []);
-          if (keywordsArray.length > 0) {
-            newPdf.setKeywords(keywordsArray);
-          }
-        }
+      } else {
+        // Preserve original metadata if not provided
+        const sourceTitle = sourcePdf.getTitle();
+        const sourceSubject = sourcePdf.getSubject();
+        const sourceAuthor = sourcePdf.getAuthor();
+        if (sourceTitle) newPdf.setTitle(sourceTitle);
+        if (sourceSubject) newPdf.setSubject(sourceSubject);
+        if (sourceAuthor) newPdf.setAuthor(sourceAuthor);
+      }
+      
+      // Always set keywords (includes from-split tag)
+      if (keywordsArray.length > 0) {
+        newPdf.setKeywords(keywordsArray);
       }
       
       // Preserve creator and producer from source
@@ -665,6 +645,45 @@ app.post('/api/split', async (req, res) => {
       await writeFile(newFilePath, newPdfBytes);
       
       createdFiles.push(newFilename);
+    }
+    
+    // Tag the original file with 'already-split' and 'needs-deleting'
+    try {
+      const originalPdfBytes = await readFile(filePath);
+      const originalPdf = await PDFDocument.load(originalPdfBytes);
+      
+      // Get existing keywords
+      let originalKeywords = originalPdf.getKeywords() || [];
+      let originalKeywordsArray = [];
+      if (Array.isArray(originalKeywords)) {
+        originalKeywordsArray = [...originalKeywords];
+      } else if (typeof originalKeywords === 'string') {
+        originalKeywordsArray = originalKeywords.includes(',')
+          ? parseCommaDelimitedString(originalKeywords)
+          : originalKeywords.split(/\s+/).filter(k => k.trim().length > 0);
+      }
+      
+      // Add 'already-split' and 'needs-deleting' tags if not already present
+      let needsUpdate = false;
+      if (!originalKeywordsArray.includes('already-split')) {
+        originalKeywordsArray.push('already-split');
+        needsUpdate = true;
+      }
+      if (!originalKeywordsArray.includes('needs-deleting')) {
+        originalKeywordsArray.push('needs-deleting');
+        needsUpdate = true;
+      }
+      
+      if (needsUpdate) {
+        originalPdf.setKeywords(originalKeywordsArray);
+        
+        // Save the updated original PDF
+        const updatedOriginalBytes = await originalPdf.save();
+        await writeFile(filePath, updatedOriginalBytes);
+      }
+    } catch (error) {
+      console.warn('Could not tag original file with already-split:', error.message);
+      // Continue even if tagging fails
     }
     
     // Log the activity
@@ -747,11 +766,8 @@ CRITICAL RULES:
 - Add time period tags if date is clear (e.g., "year-2025", "month-03")
 `;
 
-    // Build content array with text prompt and images
-    const content = [
-      {
-        type: 'text',
-        text: `Analyze this scanned document image and suggest appropriate metadata values using the predefined tagging taxonomy.
+    // Load main prompt template from file (or use default)
+    let promptText = `Analyze this scanned document image and suggest appropriate metadata values using the predefined tagging taxonomy.
 
 Current metadata:
 - Title: ${currentTitle || '(empty)'}
@@ -776,7 +792,30 @@ Guidelines:
 - MUST use exact tag slugs - do not invent new tags
 - Include: document type, category, vendor (if recognized), person (if found), action/status tags, and time period if date is clear
 
-Return ONLY valid JSON, no other text.`
+Return ONLY valid JSON, no other text.`;
+
+    try {
+      const templateContent = await readFile(PROMPT_TEMPLATE_FILE, 'utf-8');
+      // Extract main prompt template (between "## Main Prompt Template" and "## System Message")
+      const promptMatch = templateContent.match(/## Main Prompt Template\s*```\s*([\s\S]*?)\s*```/);
+      if (promptMatch) {
+        promptText = promptMatch[1].trim();
+        // Replace template variables
+        promptText = promptText.replace(/\{\{currentTitle\}\}/g, currentTitle || '(empty)');
+        promptText = promptText.replace(/\{\{currentSubject\}\}/g, currentSubject || '(empty)');
+        promptText = promptText.replace(/\{\{currentKeywords\}\}/g, currentKeywordsStr || '(empty)');
+        promptText = promptText.replace(/\{\{taxonomyText\}\}/g, taxonomyText);
+      }
+    } catch (error) {
+      console.warn('Could not load prompt template, using default:', error.message);
+      // Use default prompt text already set above
+    }
+
+    // Build content array with text prompt and images
+    const content = [
+      {
+        type: 'text',
+        text: promptText
       }
     ];
     

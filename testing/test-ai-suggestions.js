@@ -14,6 +14,7 @@ import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
 import { PDFDocument } from 'pdf-lib';
 import OpenAI from 'openai';
+import { loadTaxonomy } from '../lib/taxonomy-loader.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -22,24 +23,9 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || ''
 });
 
-// Load taxonomy (simplified version for testing)
-async function loadTaxonomy() {
-  // This is a simplified version - in production it loads from markdown files
-  // For testing, we'll use a minimal taxonomy
-  return {
-    documentTypes: ['receipt', 'invoice', 'statement', 'bill', 'tax-form', 'medical-record'],
-    categories: ['medical', 'dental', 'financial', 'tax', 'insurance', 'school', 'retail', 'grocery'],
-    actions: ['needs-filing', 'needs-payment', 'paid', 'reimbursable', 'tax-deductible'],
-    statuses: ['active', 'expired', 'superseded', 'duplicate'],
-    specials: ['multi-doc', 'confidential', 'original-scan'],
-    locations: ['location-watertown-ma', 'location-austin-tx'],
-    people: ['katherine-b-harris', 'john-n-pierce', 'alexandra-f-pierce', 'felix-b-pierce'],
-    vendors: ['heb', 'target', 'arc', 'pnc', 'rrisd', 'shell', 'chevron']
-  };
-}
 
 async function getAISuggestions(filename, pageImages) {
-  const filePath = join(__dirname, 'pdfs', filename);
+  const filePath = join(__dirname, '..', 'pdfs', filename);
   
   if (!existsSync(filePath)) {
     throw new Error('File not found');
@@ -83,7 +69,7 @@ CRITICAL RULES:
 `;
 
   // Load prompt template
-  const PROMPT_TEMPLATE_FILE = join(__dirname, 'docs', 'ai-prompt-template.md');
+  const PROMPT_TEMPLATE_FILE = join(__dirname, '..', 'docs', 'ai-prompt-template.md');
   let promptText;
   try {
     const templateContent = await readFile(PROMPT_TEMPLATE_FILE, 'utf-8');

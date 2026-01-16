@@ -7,59 +7,27 @@
 import { readFile, writeFile } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { loadTaxonomy } from '../lib/taxonomy-loader.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Load taxonomy for validation
-async function loadTaxonomy() {
-  try {
-    const tagsContent = await readFile(join(__dirname, 'docs', 'pdf_organization_tags.md'), 'utf-8');
-    const entitiesContent = await readFile(join(__dirname, 'docs', 'tag_entity_database.md'), 'utf-8');
-
-    const docTypesMatch = tagsContent.match(/### 1\. DOCUMENT TYPE TAGS[\s\S]*?(?=### 2\.|$)/);
-    const docTypes = docTypesMatch 
-      ? [...docTypesMatch[0].matchAll(/`([^`]+)`/g)].map(m => m[1])
-      : [];
-
-    const categoryMatch = tagsContent.match(/### 2\. CATEGORY TAGS[\s\S]*?(?=### 3\.|$)/);
-    const categories = categoryMatch
-      ? [...categoryMatch[0].matchAll(/`([^`]+)`/g)].map(m => m[1])
-      : [];
-
-    const actionMatch = tagsContent.match(/### 5\. ACTION TAGS[\s\S]*?(?=### 6\.|$)/);
-    const actions = actionMatch
-      ? [...actionMatch[0].matchAll(/`([^`]+)`/g)].map(m => m[1])
-      : [];
-
-    const statusMatch = tagsContent.match(/### 7\. STATUS TAGS[\s\S]*?(?=### 8\.|$)/);
-    const statuses = statusMatch
-      ? [...statusMatch[0].matchAll(/`([^`]+)`/g)].map(m => m[1])
-      : [];
-
-    const peopleMatch = entitiesContent.match(/## People Registry[\s\S]*?(?=## Vendor|$)/);
-    const people = peopleMatch
-      ? [...peopleMatch[0].matchAll(/\| `([^`]+)`/g)].map(m => m[1])
-      : [];
-
-    const vendorMatches = [...entitiesContent.matchAll(/\| `([^`]+)` \|/g)];
-    const vendors = vendorMatches
-      .map(m => m[1])
-      .filter(v => !people.includes(v));
-
-    return {
-      documentTypes: docTypes,
-      categories: categories,
-      actions: actions,
-      statuses: statuses,
-      people: people,
-      vendors: vendors,
-      allTags: [...docTypes, ...categories, ...actions, ...statuses, ...people, ...vendors]
-    };
-  } catch (error) {
-    console.error('Error loading taxonomy:', error);
-    return { documentTypes: [], categories: [], actions: [], statuses: [], people: [], vendors: [], allTags: [] };
-  }
+// Load taxonomy for validation (using shared loader)
+async function loadTaxonomyForScoring() {
+  const taxonomy = await loadTaxonomyForScoring();
+  return {
+    ...taxonomy,
+    allTags: [
+      ...taxonomy.documentTypes,
+      ...taxonomy.categories,
+      ...taxonomy.actions,
+      ...taxonomy.statuses,
+      ...taxonomy.specials,
+      ...taxonomy.locations,
+      ...taxonomy.people,
+      ...taxonomy.vendors
+    ]
+  };
 }
 
 function scoreSuggestion(originalFilename, suggestedFilename, title, subject, keywords, taxonomy) {
@@ -266,8 +234,8 @@ function scoreSuggestion(originalFilename, suggestedFilename, title, subject, ke
 }
 
 async function main() {
-  const taxonomy = await loadTaxonomy();
-  const resultsFile = join(__dirname, 'test-results.md');
+  const taxonomy = await loadTaxonomyForScoring();
+  const resultsFile = join(__dirname, '..', 'test-results.md');
   const content = await readFile(resultsFile, 'utf-8');
   
   // Parse the markdown to extract attempts

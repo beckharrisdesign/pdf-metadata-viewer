@@ -103,19 +103,22 @@ async function loadFileList() {
   container.innerHTML = '<p class="placeholder">Loading files...</p>';
   
   try {
-    const response = await fetch('/api/files-list');
-    if (!response.ok) {
+    // First, load just filenames quickly (no metadata)
+    const quickResponse = await fetch('/api/files-list?metadata=false');
+    if (!quickResponse.ok) {
       throw new Error('Failed to load files');
     }
     
-    const files = await response.json();
+    const quickData = await quickResponse.json();
+    const files = quickData.files || quickData; // Handle both paginated and non-paginated responses
+    const totalFiles = quickData.total || files.length;
     
     if (files.length === 0) {
       container.innerHTML = '<p class="placeholder">No PDF files found</p>';
       return;
     }
     
-    // Create table
+    // Show table immediately with filenames (metadata will load progressively)
     let html = `
       <table class="file-list-table">
         <thead>
@@ -132,38 +135,18 @@ async function loadFileList() {
         <tbody>
     `;
     
-    files.forEach(file => {
-      // Parse keywords and render as tags
-      let keywordsHtml = '';
-      if (file.keywords && file.keywords.trim() !== '') {
-        const keywordsArray = parseCommaDelimitedString(file.keywords);
-        if (keywordsArray.length > 0) {
-          keywordsHtml = '<div class="tags-display">' + 
-            keywordsArray.map(keyword => 
-              `<span class="tag">${escapeHtml(keyword)}</span>`
-            ).join('') + 
-            '</div>';
-        } else {
-          keywordsHtml = '<span class="empty">(empty)</span>';
-        }
-      } else {
-        keywordsHtml = '<span class="empty">(empty)</span>';
-      }
-      
+    // Render rows with placeholder metadata
+    files.forEach((file, index) => {
       html += `
-        <tr>
+        <tr data-filename="${escapeHtml(file.filename)}" data-index="${index}">
           <td class="file-name-cell">
             <a href="#" class="file-name-link" data-filename="${escapeHtml(file.filename)}">${escapeHtml(file.filename)}</a>
           </td>
-          <td class="file-metadata-cell">${escapeHtml(file.title || '(empty)')}</td>
-          <td class="file-metadata-cell">${escapeHtml(file.subject || '(empty)')}</td>
-          <td class="file-metadata-cell file-keywords-cell">${keywordsHtml}</td>
-          <td class="file-metadata-cell">${file.pageCount || 0}</td>
-          <td class="file-metadata-cell">
-            <span class="file-update-count ${file.updateCount > 0 ? 'has-updates' : ''}">
-              ${file.updateCount}
-            </span>
-          </td>
+          <td class="file-metadata-cell" data-field="title"><span class="loading-placeholder">Loading...</span></td>
+          <td class="file-metadata-cell" data-field="subject"><span class="loading-placeholder">Loading...</span></td>
+          <td class="file-metadata-cell file-keywords-cell" data-field="keywords"><span class="loading-placeholder">Loading...</span></td>
+          <td class="file-metadata-cell" data-field="pageCount"><span class="loading-placeholder">-</span></td>
+          <td class="file-metadata-cell" data-field="updateCount"><span class="loading-placeholder">-</span></td>
           <td class="file-actions-cell">
             <button class="delete-btn" data-filename="${escapeHtml(file.filename)}" title="Delete file">Delete</button>
           </td>
@@ -175,6 +158,10 @@ async function loadFileList() {
         </tbody>
       </table>
     `;
+    
+    if (totalFiles > files.length) {
+      html += `<p class="pagination-info">Showing ${files.length} of ${totalFiles} files</p>`;
+    }
     
     container.innerHTML = html;
     
@@ -195,9 +182,87 @@ async function loadFileList() {
         await deleteFile(filename);
       });
     });
+    
+    // Now load metadata in batches (progressive loading)
+    await loadMetadataProgressively(files);
+    
   } catch (error) {
     console.error('Error loading file list:', error);
     container.innerHTML = '<p class="placeholder">Error loading files</p>';
+  }
+}
+
+// Load metadata progressively in batches
+async function loadMetadataProgressively(files, batchSize = 20) {
+  for (let i = 0; i < files.length; i += batchSize) {
+    const batch = files.slice(i, i + batchSize);
+    
+    // Load metadata for this batch
+    try {
+      const response = await fetch(`/api/files-list?metadata=true&limit=${batch.length}&offset=${i}`);
+      if (!response.ok) continue;
+      
+      const data = await response.json();
+      const batchFiles = data.files || data;
+      
+      // Update table rows with metadata
+      batchFiles.forEach(file => {
+        const row = document.querySelector(`tr[data-filename="${escapeHtml(file.filename)}"]`);
+        if (!row) return;
+        
+        // Update title
+        const titleCell = row.querySelector('[data-field="title"]');
+        if (titleCell) {
+          titleCell.textContent = file.title || '(empty)';
+        }
+        
+        // Update subject
+        const subjectCell = row.querySelector('[data-field="subject"]');
+        if (subjectCell) {
+          subjectCell.textContent = file.subject || '(empty)';
+        }
+        
+        // Update keywords
+        const keywordsCell = row.querySelector('[data-field="keywords"]');
+        if (keywordsCell) {
+          let keywordsHtml = '';
+          if (file.keywords && file.keywords.trim() !== '') {
+            const keywordsArray = parseCommaDelimitedString(file.keywords);
+            if (keywordsArray.length > 0) {
+              keywordsHtml = '<div class="tags-display">' + 
+                keywordsArray.map(keyword => 
+                  `<span class="tag">${escapeHtml(keyword)}</span>`
+                ).join('') + 
+                '</div>';
+            } else {
+              keywordsHtml = '<span class="empty">(empty)</span>';
+            }
+          } else {
+            keywordsHtml = '<span class="empty">(empty)</span>';
+          }
+          keywordsCell.innerHTML = keywordsHtml;
+        }
+        
+        // Update page count
+        const pageCountCell = row.querySelector('[data-field="pageCount"]');
+        if (pageCountCell) {
+          pageCountCell.textContent = file.pageCount || 0;
+        }
+        
+        // Update update count
+        const updateCountCell = row.querySelector('[data-field="updateCount"]');
+        if (updateCountCell) {
+          updateCountCell.innerHTML = `<span class="file-update-count ${file.updateCount > 0 ? 'has-updates' : ''}">${file.updateCount}</span>`;
+        }
+      });
+    } catch (error) {
+      console.error(`Error loading metadata for batch ${i}-${i + batchSize}:`, error);
+    }
+    
+    // Small delay between batches to keep UI responsive
+    if (i + batchSize < files.length) {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
   }
 }
 

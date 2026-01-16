@@ -1,11 +1,29 @@
 #!/usr/bin/env node
 
 /**
- * Directly test AI suggestions by calling OpenAI API multiple times per PDF
- * Stores results in test-results.md
+ * Test script to run AI suggestions on multiple PDFs and score them using the rubric
+ * 
+ * Usage: node test-ai-suggestions-batch.js
  */
 
-// Polyfill DOMMatrix FIRST, before any imports that might use pdfjs-dist
+import 'dotenv/config';
+import { readFile, readdir } from 'fs/promises';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+import { existsSync } from 'fs';
+import { PDFDocument } from 'pdf-lib';
+import OpenAI from 'openai';
+import { createCanvas } from 'canvas';
+import { loadTaxonomy } from '../lib/taxonomy-loader.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY || ''
+});
+
+// Polyfill DOMMatrix for pdfjs-dist (must be before import)
 global.DOMMatrix = class DOMMatrix {
   constructor(init) {
     if (init) {
@@ -31,91 +49,14 @@ global.DOMMatrix = class DOMMatrix {
   }
 };
 
-import 'dotenv/config';
-import { readFile, readdir, writeFile } from 'fs/promises';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-import { existsSync } from 'fs';
-import { PDFDocument } from 'pdf-lib';
-import OpenAI from 'openai';
-import { createCanvas } from 'canvas';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || ''
-});
-
-// Load taxonomy
-async function loadTaxonomy() {
-  try {
-    const tagsContent = await readFile(join(__dirname, 'docs', 'pdf_organization_tags.md'), 'utf-8');
-    const entitiesContent = await readFile(join(__dirname, 'docs', 'tag_entity_database.md'), 'utf-8');
-
-    const docTypesMatch = tagsContent.match(/### 1\. DOCUMENT TYPE TAGS[\s\S]*?(?=### 2\.|$)/);
-    const docTypes = docTypesMatch 
-      ? [...docTypesMatch[0].matchAll(/`([^`]+)`/g)].map(m => m[1])
-      : [];
-
-    const categoryMatch = tagsContent.match(/### 2\. CATEGORY TAGS[\s\S]*?(?=### 3\.|$)/);
-    const categories = categoryMatch
-      ? [...categoryMatch[0].matchAll(/`([^`]+)`/g)].map(m => m[1])
-      : [];
-
-    const actionMatch = tagsContent.match(/### 5\. ACTION TAGS[\s\S]*?(?=### 6\.|$)/);
-    const actions = actionMatch
-      ? [...actionMatch[0].matchAll(/`([^`]+)`/g)].map(m => m[1])
-      : [];
-
-    const statusMatch = tagsContent.match(/### 7\. STATUS TAGS[\s\S]*?(?=### 8\.|$)/);
-    const statuses = statusMatch
-      ? [...statusMatch[0].matchAll(/`([^`]+)`/g)].map(m => m[1])
-      : [];
-
-    const specialMatch = tagsContent.match(/### 8\. SPECIAL FLAGS[\s\S]*?(?=### 9\.|$)/);
-    const specials = specialMatch
-      ? [...specialMatch[0].matchAll(/`([^`]+)`/g)].map(m => m[1])
-      : [];
-
-    const locationMatch = tagsContent.match(/### 9\. LOCATION TAGS[\s\S]*?(?=---|$)/);
-    const locations = locationMatch
-      ? [...locationMatch[0].matchAll(/`([^`]+)`/g)].map(m => m[1])
-      : [];
-
-    const peopleMatch = entitiesContent.match(/## People Registry[\s\S]*?(?=## Vendor|$)/);
-    const people = peopleMatch
-      ? [...peopleMatch[0].matchAll(/\| `([^`]+)`/g)].map(m => m[1])
-      : [];
-
-    const vendorMatches = [...entitiesContent.matchAll(/\| `([^`]+)` \|/g)];
-    const vendors = vendorMatches
-      .map(m => m[1])
-      .filter(v => !people.includes(v));
-
-    return {
-      documentTypes: docTypes,
-      categories: categories,
-      actions: actions,
-      statuses: statuses,
-      specials: specials,
-      locations: locations,
-      people: people,
-      vendors: vendors
-    };
-  } catch (error) {
-    console.error('Error loading taxonomy:', error);
-    return { documentTypes: [], categories: [], actions: [], statuses: [], specials: [], locations: [], people: [], vendors: [] };
-  }
-}
 
 // Render PDF pages as images
 async function renderPDFPagesAsImages(filePath, maxPages = 3) {
   try {
     const pdfBytes = await readFile(filePath);
-    // Import pdfjs-dist dynamically after polyfill is set
+    // Import pdfjs-dist after polyfill is set
     const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-    pdfjs.GlobalWorkerOptions.workerSrc = `file://${join(__dirname, 'node_modules', 'pdfjs-dist', 'legacy', 'build', 'pdf.worker.min.mjs')}`;
+    pdfjs.GlobalWorkerOptions.workerSrc = `file://${join(__dirname, '..', 'node_modules', 'pdfjs-dist', 'legacy', 'build', 'pdf.worker.min.mjs')}`;
     const loadingTask = pdfjs.getDocument({ data: new Uint8Array(pdfBytes) });
     const pdf = await loadingTask.promise;
     const pageCount = pdf.numPages;
@@ -143,8 +84,8 @@ async function renderPDFPagesAsImages(filePath, maxPages = 3) {
 }
 
 // Get AI suggestions
-async function getAISuggestions(filename, pageImages, taxonomy, attempt) {
-  const filePath = join(__dirname, 'pdfs', filename);
+async function getAISuggestions(filename, pageImages, taxonomy) {
+  const filePath = join(__dirname, '..', 'pdfs', filename);
   
   if (!existsSync(filePath)) {
     throw new Error('File not found');
@@ -186,7 +127,7 @@ CRITICAL RULES:
 `;
 
   // Load prompt template
-  const PROMPT_TEMPLATE_FILE = join(__dirname, 'docs', 'ai-prompt-template.md');
+  const PROMPT_TEMPLATE_FILE = join(__dirname, '..', 'docs', 'ai-prompt-template.md');
   let promptText;
   try {
     const templateContent = await readFile(PROMPT_TEMPLATE_FILE, 'utf-8');
@@ -240,7 +181,6 @@ Return ONLY valid JSON, no other text.`;
 
   const systemMessage = 'You are a helpful assistant that analyzes scanned document images and suggests appropriate metadata. Always respond with valid JSON only.';
 
-  console.log(`    Attempt ${attempt}: Calling OpenAI API...`);
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [
@@ -265,13 +205,100 @@ Return ONLY valid JSON, no other text.`;
   };
 }
 
+// Score a suggestion using the rubric (simplified scoring)
+function scoreSuggestion(suggestion, originalFilename) {
+  const scores = {
+    filename: 0,
+    title: 0,
+    subject: 0,
+    keywordsCompliance: 0,
+    keywordsCompleteness: 0,
+    keywordsFormat: 0,
+    accuracy: 0,
+    usability: 0
+  };
+
+  // Filename scoring (simplified)
+  const filename = suggestion.filename;
+  if (filename.includes(' — ') && /^\d{4}-\d{2}-\d{2}/.test(filename)) {
+    scores.filename = 4; // Good format
+    if (filename.split(' — ').length >= 3) scores.filename = 5; // Has date, type, subject/vendor
+  } else if (filename.includes(' — ')) {
+    scores.filename = 3;
+  } else {
+    scores.filename = 2;
+  }
+
+  // Title scoring
+  if (suggestion.title && suggestion.title.length > 5 && suggestion.title.length < 100) {
+    scores.title = suggestion.title.length > 10 ? 5 : 4;
+  } else if (suggestion.title) {
+    scores.title = 3;
+  }
+
+  // Subject scoring (10 words or less)
+  const subjectWords = suggestion.subject ? suggestion.subject.split(/\s+/).length : 0;
+  if (subjectWords > 0 && subjectWords <= 10) {
+    scores.subject = subjectWords <= 7 ? 5 : 4;
+  } else if (subjectWords > 10) {
+    scores.subject = 2;
+  }
+
+  // Keywords compliance (check for common taxonomy tags)
+  const keywords = suggestion.keywords.split(',').map(k => k.trim());
+  const hasValidTags = keywords.some(k => 
+    ['receipt', 'invoice', 'bill', 'statement', 'grocery', 'medical', 'retail', 'heb', 'arc', 'pnc'].includes(k.toLowerCase())
+  );
+  scores.keywordsCompliance = hasValidTags ? 4 : 2;
+
+  // Keywords completeness
+  const keywordCount = keywords.length;
+  if (keywordCount >= 5) scores.keywordsCompleteness = 5;
+  else if (keywordCount >= 3) scores.keywordsCompleteness = 4;
+  else if (keywordCount >= 2) scores.keywordsCompleteness = 3;
+  else scores.keywordsCompleteness = 2;
+
+  // Keywords format (no spaces, lowercase)
+  const hasSpaces = suggestion.keywords.includes(', ');
+  const hasUpperCase = /[A-Z]/.test(suggestion.keywords);
+  if (!hasSpaces && !hasUpperCase) scores.keywordsFormat = 5;
+  else if (hasSpaces || hasUpperCase) scores.keywordsFormat = 3;
+
+  // Overall accuracy (consistency check)
+  const filenameLower = filename.toLowerCase();
+  const titleLower = suggestion.title.toLowerCase();
+  const subjectLower = suggestion.subject.toLowerCase();
+  const keywordsLower = suggestion.keywords.toLowerCase();
+  
+  // Check if vendor/type is consistent
+  const hasConsistency = (
+    (filenameLower.includes('heb') && (titleLower.includes('heb') || keywordsLower.includes('heb'))) ||
+    (filenameLower.includes('receipt') && (keywordsLower.includes('receipt') || titleLower.includes('receipt')))
+  );
+  scores.accuracy = hasConsistency ? 4 : 3;
+
+  // Practical usability
+  if (scores.filename >= 4 && scores.title >= 4 && scores.subject >= 4) {
+    scores.usability = 5;
+  } else if (scores.filename >= 3 && scores.title >= 3 && scores.subject >= 3) {
+    scores.usability = 4;
+  } else {
+    scores.usability = 3;
+  }
+
+  const total = Object.values(scores).reduce((a, b) => a + b, 0);
+  const percentage = (total / 40) * 100;
+
+  return { scores, total, percentage };
+}
+
 // Main execution
 async function main() {
-  console.log('\n🧪 Testing AI Suggestions - Direct API Calls\n');
+  console.log('\n🧪 Testing AI Suggestions on 5 PDFs\n');
   console.log('Loading taxonomy and PDFs...\n');
 
   const taxonomy = await loadTaxonomy();
-  const pdfsDir = join(__dirname, 'pdfs');
+  const pdfsDir = join(__dirname, '..', 'pdfs');
   const files = (await readdir(pdfsDir)).filter(f => f.endsWith('.pdf')).slice(0, 5);
 
   if (files.length === 0) {
@@ -279,16 +306,16 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`Testing ${files.length} PDFs with 3 attempts each:\n`);
+  console.log(`Testing ${files.length} PDFs:\n`);
   files.forEach((f, i) => console.log(`  ${i + 1}. ${f}`));
   console.log('');
 
-  const allResults = [];
+  const results = [];
 
   for (let i = 0; i < files.length; i++) {
     const filename = files[i];
     console.log(`\n${'='.repeat(60)}`);
-    console.log(`PDF ${i + 1}/${files.length}: ${filename}`);
+    console.log(`Test ${i + 1}/${files.length}: ${filename}`);
     console.log('='.repeat(60));
 
     try {
@@ -297,83 +324,90 @@ async function main() {
       
       if (pageImages.length === 0) {
         console.log('  ⚠️  Could not render pages, skipping...');
-        allResults.push({ filename, error: 'Could not render pages' });
         continue;
       }
 
-      console.log(`  Got ${pageImages.length} page images`);
-      console.log('  Getting AI suggestions (3 attempts)...\n');
+      console.log(`  Getting AI suggestions (${pageImages.length} pages)...`);
+      const suggestion = await getAISuggestions(filename, pageImages, taxonomy);
+      
+      console.log('\n  AI Suggestions:');
+      console.log(`    Filename: ${suggestion.filename}`);
+      console.log(`    Title: ${suggestion.title}`);
+      console.log(`    Subject: ${suggestion.subject}`);
+      console.log(`    Keywords: ${suggestion.keywords}`);
 
-      const attempts = [];
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        try {
-          const suggestion = await getAISuggestions(filename, pageImages, taxonomy, attempt);
-          attempts.push(suggestion);
-          console.log(`    ✓ Attempt ${attempt} complete`);
-          
-          // Small delay between attempts
-          if (attempt < 3) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
-        } catch (error) {
-          console.log(`    ❌ Attempt ${attempt} failed: ${error.message}`);
-          attempts.push({ error: error.message });
-        }
-      }
+      console.log('\n  Scoring...');
+      const { scores, total, percentage } = scoreSuggestion(suggestion, filename);
+      
+      console.log('\n  Scores:');
+      console.log(`    1. Filename Quality: ${scores.filename}/5`);
+      console.log(`    2. Title Quality: ${scores.title}/5`);
+      console.log(`    3. Subject Quality: ${scores.subject}/5`);
+      console.log(`    4. Keywords - Taxonomy Compliance: ${scores.keywordsCompliance}/5`);
+      console.log(`    5. Keywords - Completeness: ${scores.keywordsCompleteness}/5`);
+      console.log(`    6. Keywords - Format: ${scores.keywordsFormat}/5`);
+      console.log(`    7. Overall Accuracy: ${scores.accuracy}/5`);
+      console.log(`    8. Practical Usability: ${scores.usability}/5`);
+      console.log(`\n    Total: ${total}/40 (${percentage.toFixed(1)}%)`);
 
-      allResults.push({
+      results.push({
         filename,
-        attempts
+        suggestion,
+        scores,
+        total,
+        percentage
       });
 
+      // Small delay between requests
+      if (i < files.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
     } catch (error) {
       console.error(`  ❌ Error processing ${filename}:`, error.message);
-      allResults.push({
+      results.push({
         filename,
         error: error.message
       });
     }
   }
 
-  // Write results to markdown file
-  let markdown = `# AI Suggestions Test Results\n\n`;
-  markdown += `Generated: ${new Date().toISOString()}\n\n`;
-  markdown += `Testing ${files.length} PDFs with 3 API calls each.\n\n`;
-  markdown += `---\n\n`;
-
-  allResults.forEach((result, i) => {
-    markdown += `## Test ${i + 1}: ${result.filename}\n\n`;
-    
-    if (result.error) {
-      markdown += `**Error:** ${result.error}\n\n`;
-    } else {
-      result.attempts.forEach((attempt, j) => {
-        markdown += `### Attempt ${j + 1}\n\n`;
-        if (attempt.error) {
-          markdown += `**Error:** ${attempt.error}\n\n`;
-        } else {
-          markdown += `- **Filename:** ${attempt.filename}\n`;
-          markdown += `- **Title:** ${attempt.title}\n`;
-          markdown += `- **Subject:** ${attempt.subject}\n`;
-          markdown += `- **Keywords:** ${attempt.keywords}\n\n`;
-        }
-      });
-    }
-    
-    markdown += `---\n\n`;
-  });
-
   // Summary
-  markdown += `## Summary\n\n`;
-  const successful = allResults.filter(r => !r.error && r.attempts && r.attempts.some(a => !a.error));
-  markdown += `- **Successfully tested:** ${successful.length}/${files.length} PDFs\n`;
-  markdown += `- **Total attempts:** ${allResults.reduce((sum, r) => sum + (r.attempts?.length || 0), 0)}\n`;
-  markdown += `- **Successful attempts:** ${allResults.reduce((sum, r) => sum + (r.attempts?.filter(a => !a.error).length || 0), 0)}\n\n`;
+  console.log('\n\n' + '='.repeat(60));
+  console.log('SUMMARY');
+  console.log('='.repeat(60));
 
-  await writeFile(join(__dirname, 'test-results.md'), markdown);
-  console.log('\n' + '='.repeat(60));
-  console.log('✅ Results saved to test-results.md');
-  console.log('='.repeat(60) + '\n');
+  const successful = results.filter(r => !r.error);
+  const failed = results.filter(r => r.error);
+
+  if (successful.length > 0) {
+    const avgScore = successful.reduce((sum, r) => sum + r.total, 0) / successful.length;
+    const avgPercentage = successful.reduce((sum, r) => sum + r.percentage, 0) / successful.length;
+
+    console.log(`\n✅ Successfully tested: ${successful.length} PDFs`);
+    console.log(`📊 Average Score: ${avgScore.toFixed(1)}/40 (${avgPercentage.toFixed(1)}%)`);
+    console.log(`\nIndividual Results:`);
+    
+    successful.forEach((r, i) => {
+      const rating = r.percentage >= 87.5 ? 'Excellent' :
+                     r.percentage >= 70 ? 'Good' :
+                     r.percentage >= 50 ? 'Acceptable' : 'Needs Improvement';
+      console.log(`\n  ${i + 1}. ${r.filename}`);
+      console.log(`     Score: ${r.total}/40 (${r.percentage.toFixed(1)}%) - ${rating}`);
+      console.log(`     Filename: ${r.suggestion.filename}`);
+      console.log(`     Title: ${r.suggestion.title}`);
+      console.log(`     Subject: ${r.suggestion.subject}`);
+      console.log(`     Keywords: ${r.suggestion.keywords}`);
+    });
+  }
+
+  if (failed.length > 0) {
+    console.log(`\n❌ Failed: ${failed.length} PDFs`);
+    failed.forEach(r => {
+      console.log(`  - ${r.filename}: ${r.error}`);
+    });
+  }
+
+  console.log('\n');
 }
 
 main().catch(console.error);

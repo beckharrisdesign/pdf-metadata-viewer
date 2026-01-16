@@ -28,7 +28,7 @@ function getPDFsDirectory() {
   if (pdfsDir.startsWith('/') || (process.platform === 'win32' && /^[A-Z]:/.test(pdfsDir))) {
     return pdfsDir;
   }
-  return join(__dirname, pdfsDir);
+  return join(__dirname, '..', pdfsDir);
 }
 
 const PDFS_DIR = getPDFsDirectory();

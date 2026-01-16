@@ -82,7 +82,7 @@ async function main() {
   console.log('\n🧪 Testing AI Suggestions via Server API\n');
   console.log('Loading PDFs...\n');
 
-  const pdfsDir = join(__dirname, 'pdfs');
+  const pdfsDir = join(__dirname, '..', 'pdfs');
   const files = (await readdir(pdfsDir)).filter(f => f.endsWith('.pdf')).slice(0, 5);
 
   if (files.length === 0) {
