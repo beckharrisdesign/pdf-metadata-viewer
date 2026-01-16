@@ -1,3 +1,6 @@
+// Import table manager
+import { TableManager } from './table-manager.js';
+
 // Store PDF list and current index
 let pdfList = [];
 let currentIndex = -1;
@@ -5,6 +8,7 @@ let currentFilename = '';
 let currentPageCount = 0;
 let currentlyEditing = null;
 let editingFilename = false;
+let tableManager = null; // Table manager instance
 
 // Load available PDFs on page load
 document.addEventListener('DOMContentLoaded', async () => {
@@ -20,45 +24,62 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
   
-  // Set up back to list button (in header)
-  const backToListBtn = document.getElementById('back-to-list-btn');
-  if (backToListBtn) {
-    backToListBtn.addEventListener('click', () => {
-      showFileListView();
-      loadFileList();
+  // Use event delegation on header for all button clicks (more reliable)
+  const header = document.querySelector('header');
+  if (header) {
+    header.addEventListener('click', async (e) => {
+      const target = e.target;
+      
+      // Back to list button
+      if (target.id === 'back-to-list-btn' || target.closest('#back-to-list-btn')) {
+        e.preventDefault();
+        showFileListView();
+        await loadFileList();
+        return;
+      }
+      
+      // Previous button
+      if (target.id === 'prev-btn' || target.closest('#prev-btn')) {
+        e.preventDefault();
+        navigatePrevious();
+        return;
+      }
+      
+      // Next button
+      if (target.id === 'next-btn' || target.closest('#next-btn')) {
+        e.preventDefault();
+        navigateNext();
+        return;
+      }
+      
+      // Split button
+      if (target.id === 'split-btn' || target.closest('#split-btn')) {
+        e.preventDefault();
+        if (currentFilename) {
+          try {
+            const response = await fetch(`/api/metadata/${encodeURIComponent(currentFilename)}`);
+            const metadata = await response.json();
+            showSplitterView(currentFilename, metadata);
+          } catch (error) {
+            console.error('Error loading metadata for splitter:', error);
+            alert('Error loading PDF metadata');
+          }
+        }
+        return;
+      }
     });
-    // Hide button initially (only show in detail view)
-    backToListBtn.style.display = 'none';
+    
+    // Hide back button initially (only show in detail view)
+    const backToListBtn = document.getElementById('back-to-list-btn');
+    if (backToListBtn) {
+      backToListBtn.style.display = 'none';
+    }
   }
-  
-  // Set up detail view navigation (only when in detail view)
-  const prevBtn = document.getElementById('prev-btn');
-  const nextBtn = document.getElementById('next-btn');
-  if (prevBtn) prevBtn.addEventListener('click', navigatePrevious);
-  if (nextBtn) nextBtn.addEventListener('click', navigateNext);
   
   // Filename click handler
   const pdfNameElement = document.getElementById('pdf-name');
   if (pdfNameElement) {
     pdfNameElement.addEventListener('click', handleFilenameClick);
-  }
-  
-  // Split button click handler
-  const splitBtn = document.getElementById('split-btn');
-  if (splitBtn) {
-    splitBtn.addEventListener('click', async () => {
-      if (currentFilename) {
-        // Load metadata to pass to splitter view
-        try {
-          const response = await fetch(`/api/metadata/${encodeURIComponent(currentFilename)}`);
-          const metadata = await response.json();
-          showSplitterView(currentFilename, metadata);
-        } catch (error) {
-          console.error('Error loading metadata for splitter:', error);
-          alert('Error loading PDF metadata');
-        }
-      }
-    });
   }
   
   // Set up activity log toggle
@@ -110,7 +131,7 @@ async function loadFileList() {
     }
     
     const quickData = await quickResponse.json();
-    const files = quickData.files || quickData; // Handle both paginated and non-paginated responses
+    const files = quickData.files || quickData;
     const totalFiles = quickData.total || files.length;
     
     if (files.length === 0) {
@@ -118,69 +139,110 @@ async function loadFileList() {
       return;
     }
     
-    // Show table immediately with filenames (metadata will load progressively)
-    let html = `
-      <table class="file-list-table">
-        <thead>
-          <tr>
-            <th>Filename</th>
-            <th>Title</th>
-            <th>Subject</th>
-            <th>Keywords</th>
-            <th>Pages</th>
-            <th>Updates</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
+    // Create native HTML table
+    container.innerHTML = '';
+    const table = document.createElement('table');
+    table.className = 'file-list-table';
+    
+    // Create table header
+    const thead = document.createElement('thead');
+    thead.innerHTML = `
+      <tr>
+        <th data-sort="string" data-filter="true" class="sortable">Filename</th>
+        <th data-sort="string" data-filter="true" class="sortable">Title</th>
+        <th data-sort="string" data-filter="true" class="sortable">Subject</th>
+        <th data-sort="string" data-filter="true" class="sortable">Keywords</th>
+        <th data-sort="number" data-filter="true" class="sortable text-center">Pages</th>
+        <th data-sort="number" data-filter="true" class="sortable text-center">Updates</th>
+        <th class="text-center">Actions</th>
+      </tr>
     `;
     
-    // Render rows with placeholder metadata
-    files.forEach((file, index) => {
-      html += `
-        <tr data-filename="${escapeHtml(file.filename)}" data-index="${index}">
-          <td class="file-name-cell">
-            <a href="#" class="file-name-link" data-filename="${escapeHtml(file.filename)}">${escapeHtml(file.filename)}</a>
-          </td>
-          <td class="file-metadata-cell" data-field="title"><span class="loading-placeholder">Loading...</span></td>
-          <td class="file-metadata-cell" data-field="subject"><span class="loading-placeholder">Loading...</span></td>
-          <td class="file-metadata-cell file-keywords-cell" data-field="keywords"><span class="loading-placeholder">Loading...</span></td>
-          <td class="file-metadata-cell" data-field="pageCount"><span class="loading-placeholder">-</span></td>
-          <td class="file-metadata-cell" data-field="updateCount"><span class="loading-placeholder">-</span></td>
-          <td class="file-actions-cell">
-            <button class="delete-btn" data-filename="${escapeHtml(file.filename)}" title="Delete file">Delete</button>
-          </td>
-        </tr>
+    // Create table body
+    const tbody = document.createElement('tbody');
+    files.forEach(file => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td data-field="filename" data-filename="${escapeHtml(file.filename)}">
+          <a href="#" class="file-name-link">${escapeHtml(file.filename)}</a>
+        </td>
+        <td data-field="title"><span class="loading-placeholder">Loading...</span></td>
+        <td data-field="subject"><span class="loading-placeholder">Loading...</span></td>
+        <td data-field="keywords"><span class="loading-placeholder">Loading...</span></td>
+        <td data-field="pageCount" class="text-center"><span class="loading-placeholder">-</span></td>
+        <td data-field="updateCount" class="text-center"><span class="loading-placeholder">-</span></td>
+        <td class="text-center">
+          <div class="actions-menu-container">
+            <button class="kebab-menu-btn" data-filename="${escapeHtml(file.filename)}" aria-label="Actions menu" title="Actions">
+              <span class="kebab-icon">
+                <span class="kebab-dot"></span>
+                <span class="kebab-dot"></span>
+                <span class="kebab-dot"></span>
+              </span>
+            </button>
+            <div class="actions-menu" data-filename="${escapeHtml(file.filename)}" style="display: none;">
+              <button class="menu-item delete-menu-item" data-filename="${escapeHtml(file.filename)}">Delete</button>
+            </div>
+          </div>
+        </td>
       `;
+      tbody.appendChild(row);
     });
     
-    html += `
-        </tbody>
-      </table>
-    `;
+    table.appendChild(thead);
+    table.appendChild(tbody);
+    container.appendChild(table);
     
-    if (totalFiles > files.length) {
-      html += `<p class="pagination-info">Showing ${files.length} of ${totalFiles} files</p>`;
-    }
+    // Initialize table manager
+    tableManager = new TableManager(table);
     
-    container.innerHTML = html;
-    
-    // Add click handlers for file names
-    container.querySelectorAll('.file-name-link').forEach(link => {
-      link.addEventListener('click', async (e) => {
-        e.preventDefault();
-        const filename = e.target.dataset.filename;
-        await openFileDetail(filename);
-      });
-    });
-    
-    // Add click handlers for delete buttons
-    container.querySelectorAll('.delete-btn').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
+    // Add click handlers
+    table.addEventListener('click', async (e) => {
+      // Handle kebab menu button click
+      if (e.target.closest('.kebab-menu-btn')) {
+        e.stopPropagation();
+        const btn = e.target.closest('.kebab-menu-btn');
+        const filename = btn.dataset.filename;
+        const menu = btn.parentElement.querySelector('.actions-menu');
+        const isVisible = menu.style.display !== 'none';
+        
+        // Close all other menus
+        table.querySelectorAll('.actions-menu').forEach(m => {
+          m.style.display = 'none';
+        });
+        
+        // Toggle this menu
+        menu.style.display = isVisible ? 'none' : 'block';
+      }
+      // Handle menu item clicks
+      else if (e.target.classList.contains('delete-menu-item')) {
         e.stopPropagation();
         const filename = e.target.dataset.filename;
+        // Close menu
+        e.target.closest('.actions-menu').style.display = 'none';
         await deleteFile(filename);
-      });
+      }
+      // Handle filename link clicks
+      else if (e.target.classList.contains('file-name-link')) {
+        e.preventDefault();
+        const filename = e.target.closest('[data-filename]').dataset.filename;
+        openFileDetail(filename);
+      }
+      // Close menus when clicking outside
+      else {
+        table.querySelectorAll('.actions-menu').forEach(m => {
+          m.style.display = 'none';
+        });
+      }
+    });
+    
+    // Close menus when clicking outside the table
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.file-list-table')) {
+        table.querySelectorAll('.actions-menu').forEach(m => {
+          m.style.display = 'none';
+        });
+      }
     });
     
     // Now load metadata in batches (progressive loading)
@@ -194,6 +256,8 @@ async function loadFileList() {
 
 // Load metadata progressively in batches
 async function loadMetadataProgressively(files, batchSize = 20) {
+  if (!tableManager) return;
+  
   for (let i = 0; i < files.length; i += batchSize) {
     const batch = files.slice(i, i + batchSize);
     
@@ -207,53 +271,16 @@ async function loadMetadataProgressively(files, batchSize = 20) {
       
       // Update table rows with metadata
       batchFiles.forEach(file => {
-        const row = document.querySelector(`tr[data-filename="${escapeHtml(file.filename)}"]`);
-        if (!row) return;
+        const keywordsArray = file.keywords ? parseCommaDelimitedString(file.keywords) : [];
         
-        // Update title
-        const titleCell = row.querySelector('[data-field="title"]');
-        if (titleCell) {
-          titleCell.textContent = file.title || '(empty)';
-        }
-        
-        // Update subject
-        const subjectCell = row.querySelector('[data-field="subject"]');
-        if (subjectCell) {
-          subjectCell.textContent = file.subject || '(empty)';
-        }
-        
-        // Update keywords
-        const keywordsCell = row.querySelector('[data-field="keywords"]');
-        if (keywordsCell) {
-          let keywordsHtml = '';
-          if (file.keywords && file.keywords.trim() !== '') {
-            const keywordsArray = parseCommaDelimitedString(file.keywords);
-            if (keywordsArray.length > 0) {
-              keywordsHtml = '<div class="tags-display">' + 
-                keywordsArray.map(keyword => 
-                  `<span class="tag">${escapeHtml(keyword)}</span>`
-                ).join('') + 
-                '</div>';
-            } else {
-              keywordsHtml = '<span class="empty">(empty)</span>';
-            }
-          } else {
-            keywordsHtml = '<span class="empty">(empty)</span>';
-          }
-          keywordsCell.innerHTML = keywordsHtml;
-        }
-        
-        // Update page count
-        const pageCountCell = row.querySelector('[data-field="pageCount"]');
-        if (pageCountCell) {
-          pageCountCell.textContent = file.pageCount || 0;
-        }
-        
-        // Update update count
-        const updateCountCell = row.querySelector('[data-field="updateCount"]');
-        if (updateCountCell) {
-          updateCountCell.innerHTML = `<span class="file-update-count ${file.updateCount > 0 ? 'has-updates' : ''}">${file.updateCount}</span>`;
-        }
+        tableManager.updateRow(file.filename, {
+          title: file.title || '',
+          subject: file.subject || '',
+          keywords: file.keywords || '',
+          keywordsArray: keywordsArray,
+          pageCount: file.pageCount || 0,
+          updateCount: file.updateCount || 0
+        });
       });
     } catch (error) {
       console.error(`Error loading metadata for batch ${i}-${i + batchSize}:`, error);
@@ -646,6 +673,13 @@ function displayMetadata(metadata) {
                 `).join('')}
               </div>
               <div class="tag-input-container">
+                <div class="predefined-tags">
+                  <span class="predefined-tags-label">Quick add:</span>
+                  <button type="button" class="predefined-tag-btn" data-tag="no-split-needed">no-split-needed</button>
+                  <button type="button" class="predefined-tag-btn" data-tag="multi-doc">multi-doc</button>
+                  <button type="button" class="predefined-tag-btn" data-tag="needs-deleting">needs-deleting</button>
+                  <button type="button" class="predefined-tag-btn" data-tag="duplicate">duplicate</button>
+                </div>
                 <input type="text" 
                        class="tag-input" 
                        placeholder="Add a tag..."
@@ -859,6 +893,18 @@ function displayMetadata(metadata) {
       
       tagInput.focus();
     }
+    
+    // Handle predefined tag buttons
+    const predefinedTagBtns = metadataDisplay.querySelectorAll('.predefined-tag-btn');
+    predefinedTagBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const tagValue = btn.dataset.tag;
+        if (tagValue) {
+          addTag(tagValue);
+        }
+      });
+    });
     
     // Handle tag removal
     metadataDisplay.querySelectorAll('.tag-remove').forEach(btn => {
@@ -1212,6 +1258,7 @@ async function showSplitterView(filename, metadata) {
   document.getElementById('splitter-back-btn').onclick = hideSplitterView;
   document.getElementById('splitter-execute-btn').onclick = () => executeSplit(filename, metadata);
   document.getElementById('splitter-clear-btn').onclick = clearSplitMarkers;
+  document.getElementById('splitter-no-split-btn').onclick = () => markAsNoSplitNeeded(filename);
 }
 
 function hideSplitterView() {
@@ -1219,7 +1266,10 @@ function hideSplitterView() {
   document.querySelector('.preview-section').style.display = 'block';
   document.querySelector('.metadata-section').style.display = 'block';
   document.getElementById('splitter-view').style.display = 'none';
-  document.querySelector('header').style.display = 'block'; // Show navigation header again
+  
+  // Ensure detail view is shown and header is visible
+  showDetailView();
+  
   splitMarkers = [];
 }
 
@@ -1329,6 +1379,61 @@ function updateSplitterUI() {
   }
 }
 
+async function markAsNoSplitNeeded(filename) {
+  if (!confirm('This will add the "no-split-needed" tag to this PDF, indicating it should not be split. Continue?')) {
+    return;
+  }
+  
+  try {
+    // Get current metadata
+    const metadataResponse = await fetch(`/api/metadata/${encodeURIComponent(filename)}`);
+    if (!metadataResponse.ok) {
+      throw new Error('Failed to load current metadata');
+    }
+    
+    const currentMetadata = await metadataResponse.json();
+    const currentKeywords = currentMetadata.keywords || '';
+    const keywordsArray = parseCommaDelimitedString(currentKeywords);
+    
+    // Add no-split-needed if not already present
+    if (!keywordsArray.includes('no-split-needed')) {
+      keywordsArray.push('no-split-needed');
+    }
+    
+    // Remove multi-doc tag if present (since we're marking it as no-split-needed)
+    const filteredKeywords = keywordsArray.filter(k => k !== 'multi-doc');
+    const newKeywords = filteredKeywords.join(',');
+    
+    // Update keywords
+    const updateResponse = await fetch(`/api/metadata/${encodeURIComponent(filename)}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        field: 'keywords',
+        value: newKeywords
+      })
+    });
+    
+    if (!updateResponse.ok) {
+      const error = await updateResponse.json();
+      throw new Error(error.error || 'Failed to update metadata');
+    }
+    
+    alert('PDF marked as "no-split-needed"');
+    
+    // Hide splitter view and ensure detail view is shown
+    hideSplitterView();
+    showDetailView(); // Ensure detail view is properly shown
+    await loadPDFMetadata(filename);
+    
+  } catch (error) {
+    console.error('Error marking as no-split-needed:', error);
+    alert('Error: ' + error.message);
+  }
+}
+
 async function executeSplit(filename, metadata) {
   if (splitMarkers.length === 0) {
     alert('Please add at least one split marker');
@@ -1365,9 +1470,11 @@ async function executeSplit(filename, metadata) {
     const result = await response.json();
     alert(`PDF successfully split into ${result.files.length} file(s):\n${result.files.join('\n')}`);
     
-    // Reload PDF list and return to main view
-    await loadPDFList();
+    // Hide splitter view first to restore header
     hideSplitterView();
+    
+    // Reload PDF list
+    await loadPDFList();
     
     // Select the first new file if available
     if (result.files.length > 0) {
@@ -1375,11 +1482,15 @@ async function executeSplit(filename, metadata) {
       if (pdfList.includes(firstNewFile)) {
         currentIndex = pdfList.indexOf(firstNewFile);
         currentFilename = firstNewFile;
+        showDetailView(); // Ensure detail view is shown with header
         await loadPDFPreview(currentFilename);
         await loadPDFMetadata(currentFilename);
         updatePDFNameDisplay();
         updateNavigationButtons();
       }
+    } else {
+      // If no files to show, at least ensure we're in a valid view state
+      showDetailView();
     }
     
     // Reload activity log if it's visible
