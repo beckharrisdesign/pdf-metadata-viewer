@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
-import { readFile, readdir, writeFile, rename, unlink } from 'fs/promises';
+import { readFile, readdir, writeFile, rename, unlink, stat } from 'fs/promises';
 import { PDFDocument } from 'pdf-lib';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -55,6 +55,138 @@ const PDFS_DIR = getPDFsDirectory();
 // Activity log file path
 const LOG_FILE = join(__dirname, 'activity-log.json');
 
+// Helper function to read file with timeout and better error handling
+async function readFileWithTimeout(filePath, timeoutMs = 60000) {
+  const filename = filePath.split(/[/\\]/).pop();
+  const startTime = Date.now();
+  
+  try {
+    // Check if file is actually accessible (not just a placeholder from unmounted drive)
+    let fileSizeMB = 'unknown';
+    let isGoogleDrive = false;
+    try {
+      const stats = await stat(filePath);
+      fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
+      
+      // Detect Google Drive mount points
+      const pathLower = filePath.toLowerCase();
+      if (pathLower.includes('googledrive') || 
+          pathLower.includes('google drive') ||
+          pathLower.includes('drive.google.com') ||
+          pathLower.match(/\/[gG]oogle\s*[dD]rive/)) {
+        isGoogleDrive = true;
+      }
+      
+      // Check if file size is 0 or suspiciously small (might be a placeholder)
+      if (stats.size === 0) {
+        console.warn(`⚠ Warning: File appears to be empty (0 bytes): ${filename}`);
+        if (isGoogleDrive) {
+          throw new Error(`File "${filename}" appears to be a placeholder. The Google Drive client may be closed or the file is not synced. Please ensure Google Drive is running and the file is synced locally.`);
+        }
+      }
+      
+      if (stats.size > 100 * 1024 * 1024) { // > 100MB
+        console.warn(`⚠ Warning: Large file detected: ${filename} (${fileSizeMB} MB). This may take a while...`);
+      }
+    } catch (statError) {
+      // If we can't even stat the file, it's likely not available
+      if (statError.code === 'ENOENT') {
+        throw new Error(`File not found: ${filename}. The file may not be synced or the Google Drive client is closed.`);
+      }
+      console.warn(`⚠ Could not get file stats for ${filename}:`, statError.message);
+      if (statError.message.includes('Google Drive')) {
+        throw statError; // Re-throw our custom Google Drive error
+      }
+    }
+    
+    // Read file with timeout - try AbortController first (Node 15+), fallback to Promise.race
+    let pdfBytes;
+    try {
+      // Try with AbortController (better cancellation support)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+      }, timeoutMs);
+      
+      try {
+        pdfBytes = await readFile(filePath, { signal: controller.signal });
+        clearTimeout(timeoutId);
+      } catch (readError) {
+        clearTimeout(timeoutId);
+      if (readError.name === 'AbortError') {
+        const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+        console.error(`✗ Timeout reading file: ${filename} after ${duration}s`);
+        console.error(`  File path: ${filePath}`);
+        console.error(`  File size: ${fileSizeMB} MB`);
+        if (isGoogleDrive) {
+          console.error(`  ⚠ Google Drive detected - the client may be closed or file not synced`);
+          throw new Error(`File read timeout: ${filename}. The Google Drive client appears to be closed or the file is not synced locally. Please ensure Google Drive is running and the file is available offline.`);
+        }
+        console.error(`  This may indicate a slow network drive or a very large file.`);
+        throw new Error(`File read timeout: ${filename} (${fileSizeMB} MB). The file may be on a slow network drive or is very large. Try accessing the file directly to ensure it's available.`);
+      }
+        // If AbortSignal not supported, fall through to Promise.race approach
+        if (readError.code !== 'ERR_INVALID_ARG_TYPE') {
+          throw readError;
+        }
+        // Fallback to Promise.race if AbortSignal not supported
+        const readPromise = readFile(filePath);
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error(`File read timeout after ${timeoutMs}ms`)), timeoutMs);
+        });
+        pdfBytes = await Promise.race([readPromise, timeoutPromise]);
+      }
+    } catch (raceError) {
+      // Handle Promise.race timeout
+      if (raceError.message.includes('timeout')) {
+        const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+        console.error(`✗ Timeout reading file: ${filename} after ${duration}s`);
+        console.error(`  File path: ${filePath}`);
+        console.error(`  File size: ${fileSizeMB} MB`);
+        if (isGoogleDrive) {
+          throw new Error(`File read timeout: ${filename}. The Google Drive client appears to be closed or the file is not synced locally. Please ensure Google Drive is running and the file is available offline.`);
+        }
+        throw new Error(`File read timeout: ${filename} (${fileSizeMB} MB). The file may be on a slow network drive or is very large.`);
+      }
+      throw raceError;
+    }
+    
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    console.log(`✓ Read ${filename} (${fileSizeMB} MB) in ${duration}s`);
+    return pdfBytes;
+  } catch (error) {
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    
+    // Check if it's a Google Drive related error
+    const pathLower = filePath.toLowerCase();
+    const isGoogleDrive = pathLower.includes('googledrive') || 
+                          pathLower.includes('google drive') ||
+                          pathLower.includes('drive.google.com') ||
+                          pathLower.match(/\/[gG]oogle\s*[dD]rive/);
+    
+    if (error.code === 'ETIMEDOUT' || error.message.includes('timeout')) {
+      console.error(`✗ Timeout reading file: ${filename} after ${duration}s`);
+      console.error(`  File path: ${filePath}`);
+      if (isGoogleDrive) {
+        console.error(`  ⚠ Google Drive detected - the client may be closed or file not synced`);
+        throw new Error(`File read timeout: ${filename}. The Google Drive client appears to be closed or the file is not synced locally. Please ensure Google Drive is running and the file is available offline.`);
+      }
+      console.error(`  This may indicate a slow network drive or very large file.`);
+      throw new Error(`File read timeout: ${filename}. The file may be on a slow network drive or is very large. Try accessing the file directly to ensure it's available.`);
+    }
+    
+    // Re-throw custom Google Drive errors
+    if (error.message.includes('Google Drive')) {
+      throw error;
+    }
+    
+    console.error(`✗ Error reading file: ${filename} after ${duration}s`);
+    console.error(`  Error: ${error.message}`);
+    console.error(`  Code: ${error.code || 'N/A'}`);
+    throw error;
+  }
+}
+
 // Template file path
 const PROMPT_TEMPLATE_FILE = join(__dirname, 'docs', 'ai-prompt-template.md');
 
@@ -95,14 +227,14 @@ app.use(express.json({ limit: '10mb' }));
 // Endpoint to get PDF metadata
 app.get('/api/metadata/:filename', async (req, res) => {
   try {
-    const filename = req.params.filename;
+    const filename = decodeURIComponent(req.params.filename);
     const filePath = join(PDFS_DIR, filename);
     
     if (!existsSync(filePath)) {
       return res.status(404).json({ error: 'File not found' });
     }
 
-    const pdfBytes = await readFile(filePath);
+    const pdfBytes = await readFileWithTimeout(filePath);
     const pdfDoc = await PDFDocument.load(pdfBytes);
     
     // Get keywords - pdf-lib returns an array
@@ -153,7 +285,22 @@ app.get('/api/metadata/:filename', async (req, res) => {
     res.json(metadata);
   } catch (error) {
     console.error('Error reading PDF metadata:', error);
-    res.status(500).json({ error: 'Failed to read PDF metadata', details: error.message });
+    console.error('Filename:', req.params.filename);
+    console.error('File path:', join(PDFS_DIR, req.params.filename));
+    
+    // Provide more helpful error messages
+    let errorMessage = error.message;
+    if (error.code === 'ETIMEDOUT' || error.message.includes('timeout')) {
+      errorMessage = `File read timeout. The file "${req.params.filename}" may be on a slow network drive or is very large. Try accessing the file directly to ensure it's available.`;
+    } else if (error.code === 'ENOENT') {
+      errorMessage = `File not found: ${req.params.filename}`;
+    }
+    
+    res.status(500).json({ 
+      error: 'Failed to read PDF metadata', 
+      details: errorMessage,
+      code: error.code || 'UNKNOWN'
+    });
   }
 });
 
@@ -185,7 +332,7 @@ app.put('/api/metadata/:filename', async (req, res) => {
     }
 
     // Load the PDF
-    const pdfBytes = await readFile(filePath);
+    const pdfBytes = await readFileWithTimeout(filePath);
     const pdfDoc = await PDFDocument.load(pdfBytes);
     
     // Get old value before updating
@@ -432,7 +579,7 @@ app.get('/api/files-list', async (req, res) => {
         batch.map(async (filename) => {
           try {
             const filePath = join(pdfsDir, filename);
-            const pdfBytes = await readFile(filePath);
+            const pdfBytes = await readFileWithTimeout(filePath);
             const pdfDoc = await PDFDocument.load(pdfBytes);
             
             // Get keywords
@@ -535,7 +682,7 @@ app.post('/api/split', async (req, res) => {
     }
     
     // Load the original PDF
-    const pdfBytes = await readFile(filePath);
+    const pdfBytes = await readFileWithTimeout(filePath);
     const sourcePdf = await PDFDocument.load(pdfBytes);
     const totalPages = sourcePdf.getPageCount();
     
@@ -649,7 +796,7 @@ app.post('/api/split', async (req, res) => {
     
     // Tag the original file with 'already-split' and 'needs-deleting'
     try {
-      const originalPdfBytes = await readFile(filePath);
+      const originalPdfBytes = await readFileWithTimeout(filePath);
       const originalPdf = await PDFDocument.load(originalPdfBytes);
       
       // Get existing keywords
@@ -727,7 +874,7 @@ app.post('/api/ai-suggestions/:filename', async (req, res) => {
     }
     
     // Get current metadata for context
-    const pdfBytes = await readFile(filePath);
+    const pdfBytes = await readFileWithTimeout(filePath);
     const pdfDoc = await PDFDocument.load(pdfBytes);
     const currentTitle = pdfDoc.getTitle() || '';
     const currentSubject = pdfDoc.getSubject() || '';

@@ -92,7 +92,7 @@ export class TableManager {
         const filterInput = document.createElement('input');
         filterInput.type = 'text';
         filterInput.className = 'table-filter table-filter-tags';
-        filterInput.placeholder = `Filter ${originalText}...`;
+        filterInput.placeholder = `Filter ${originalText}`;
         filterInput.addEventListener('keydown', (e) => {
           if (e.key === 'Enter' && e.target.value.trim()) {
             e.preventDefault();
@@ -109,7 +109,7 @@ export class TableManager {
         const filterInput = document.createElement('input');
         filterInput.type = 'text';
         filterInput.className = 'table-filter';
-        filterInput.placeholder = `Filter ${originalText}...`;
+        filterInput.placeholder = `Filter ${originalText}`;
         filterInput.addEventListener('input', (e) => {
           this.filter(index, e.target.value);
         });

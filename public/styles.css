@@ -9,20 +9,44 @@ body {
   background: #f5f5f5;
   color: #333;
   line-height: 1.6;
+  margin: 0;
+  padding: 0;
+}
+
+.container {
+  width: 100%;
+  margin: 0 auto;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: #f5f5f5;
+  padding: 0;
+  margin: 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  width: 100%;
+}
+
+.header-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 12px 20px;
+  background: white;
+  border-radius: 0; /* Remove border radius for full bleed */
+  margin-top: 0;
+  margin-bottom: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .container {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 20px;
-}
-
-header {
-  background: white;
-  padding: 12px 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  margin-bottom: 20px;
+  padding: 0 20px 20px 20px; /* No top padding, keep left/right/bottom */
 }
 
 .file-selector {
@@ -168,24 +192,32 @@ main {
   display: grid;
   grid-template-columns: 1fr 400px;
   gap: 20px;
+  width: 100%;
 }
 
 /* File List View */
 .file-list-view {
   grid-column: 1 / -1;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  padding: 20px;
+  background: transparent; /* Let headers provide their own backgrounds */
+  border-radius: 0; /* Remove border radius for full bleed */
+  box-shadow: none; /* Remove shadow for full bleed */
+  padding: 0; /* Remove padding for full bleed */
 }
 
 .file-list-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
-  padding-bottom: 15px;
+  margin-bottom: 0;
+  padding: 20px 20px 15px 20px;
   border-bottom: 2px solid #3498db;
+  position: sticky;
+  top: 60px; /* Below main header (36px button + 12px padding top + 12px padding bottom) */
+  z-index: 99; /* Below main header but above content */
+  background: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); /* Subtle shadow when sticky */
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .file-list-header h2 {
@@ -210,14 +242,13 @@ main {
 }
 
 .file-list-container {
-  overflow-x: hidden;
+  /* No scrolling - let viewport handle it */
+  padding: 0 20px 20px 20px; /* Add padding only to sides and bottom, not top */
 }
 
 /* File list container */
 #file-list-container {
-  overflow-x: hidden;
-  max-height: 600px;
-  overflow-y: auto;
+  /* No scrolling - let viewport handle it */
 }
 
 /* File list table - Material Design */
@@ -226,16 +257,25 @@ main {
   border-collapse: collapse;
   font-size: 14px;
   background: white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
-  border-radius: 4px;
-  overflow: hidden;
-  table-layout: fixed; /* Prevent horizontal overflow */
+  box-shadow: none; /* Remove shadow for full bleed */
+  border-radius: 0; /* Remove border radius for full bleed */
+  /* No overflow restrictions - let viewport scroll */
+  table-layout: fixed; /* Keep fixed layout for consistent column widths */
+}
+
+/* Table body rows should have white background to match header */
+.file-list-table tbody {
+  background: white;
 }
 
 /* Table header - Material Design */
 .file-list-table thead {
   background: #ffffff;
   border-bottom: 1px solid #dadce0;
+  position: sticky;
+  top: 137px; /* Below main header (60px) + file-list-header (~77px with padding) */
+  z-index: 98; /* Below file-list-header but above table body */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); /* Subtle shadow when sticky */
 }
 
 .file-list-table th {
@@ -246,24 +286,36 @@ main {
   font-size: 12px;
   letter-spacing: 0.3px;
   border-bottom: 1px solid #dadce0;
+  border-right: 1px solid #f1f3f4;
   position: relative;
   vertical-align: top;
-  white-space: nowrap;
+  white-space: normal;
   box-sizing: border-box;
+  overflow: visible;
+}
+
+.file-list-table th:last-child {
+  border-right: none;
 }
 
 /* Header row - contains text and sort indicator on same line */
+.file-list-table th {
+  position: relative;
+}
+
 .file-list-table th .header-row {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   line-height: 1.4;
   min-height: 20px;
+  width: 100%;
 }
 
 .file-list-table th .header-text {
   display: inline-block;
   flex: 0 0 auto;
-  margin-right: 4px;
+  text-align: left;
 }
 
 /* Actions column header aligns right */
@@ -276,10 +328,16 @@ main {
   justify-content: flex-end;
 }
 
+/* Actions column sort indicator should stay on right */
+.file-list-table th:nth-child(7) .sort-indicator {
+  margin-left: 0;
+  margin-right: 0;
+}
+
 /* Column widths */
 .file-list-table th:nth-child(1),
 .file-list-table td:nth-child(1) {
-  width: 20%; /* Filename */
+  width: 18%; /* Filename - slightly reduced */
 }
 
 .file-list-table th:nth-child(2),
@@ -294,22 +352,26 @@ main {
 
 .file-list-table th:nth-child(4),
 .file-list-table td:nth-child(4) {
-  width: 25%; /* Keywords - 20% wider than default */
+  width: 23%; /* Keywords - slightly reduced */
 }
 
 .file-list-table th:nth-child(5),
 .file-list-table td:nth-child(5) {
-  width: 8%; /* Pages */
+  width: 12%; /* Pages - increased to prevent wrapping */
+  white-space: nowrap;
+  text-align: center;
 }
 
 .file-list-table th:nth-child(6),
 .file-list-table td:nth-child(6) {
-  width: 8%; /* Updates */
+  width: 12%; /* Updates - increased to prevent wrapping */
+  white-space: nowrap;
+  text-align: center;
 }
 
 .file-list-table th:nth-child(7),
 .file-list-table td:nth-child(7) {
-  width: 9%; /* Actions */
+  width: 7%; /* Actions - slightly reduced */
 }
 
 .file-list-table th.sortable {
@@ -323,12 +385,13 @@ main {
 }
 
 .file-list-table th .sort-indicator {
-  margin-left: 4px;
   opacity: 0.5;
   font-size: 14px;
   display: inline-block;
   flex: 0 0 auto;
   line-height: 1;
+  margin-left: auto;
+  text-align: right;
 }
 
 .file-list-table th.text-center {
@@ -339,12 +402,15 @@ main {
 .file-list-table th .filter-container {
   margin-top: 4px;
   width: 100%;
+  min-width: 0;
   display: block;
   clear: both;
+  overflow: visible;
 }
 
 .file-list-table th .table-filter {
   width: 100%;
+  min-width: 0;
   padding: 6px 12px;
   border: 1px solid #dadce0;
   border-radius: 4px;
@@ -354,6 +420,7 @@ main {
   font-family: inherit;
   height: 32px;
   box-sizing: border-box;
+  overflow: visible;
 }
 
 /* Keywords filter input - inside wrapper, no border */
@@ -361,10 +428,12 @@ main {
   border: none;
   padding: 0;
   flex: 1 1 auto;
-  min-width: 120px;
+  min-width: 0;
+  width: auto;
   height: auto;
   background: transparent;
   box-shadow: none;
+  overflow: visible;
 }
 
 .file-list-table th .table-filter.table-filter-tags:focus {
@@ -390,6 +459,7 @@ main {
   align-items: center;
   gap: 6px;
   width: 100%;
+  min-width: 0;
   padding: 4px 12px;
   border: 1px solid #dadce0;
   border-radius: 4px;
@@ -397,6 +467,7 @@ main {
   min-height: 32px;
   box-sizing: border-box;
   transition: all 0.2s ease;
+  overflow: visible;
 }
 
 .file-list-table th .filter-input-wrapper:focus-within {
@@ -511,6 +582,17 @@ main {
   vertical-align: top;
   word-wrap: break-word;
   overflow-wrap: break-word;
+  border-right: 1px solid #f1f3f4;
+}
+
+.file-list-table td:last-child {
+  border-right: none;
+}
+
+/* Actions column - align content to top right */
+.file-list-table td:nth-child(7) {
+  text-align: right;
+  vertical-align: top;
 }
 
 .file-list-table td.text-center {
@@ -612,6 +694,8 @@ main {
 .file-list-table .actions-menu-container {
   position: relative;
   display: inline-block;
+  vertical-align: top;
+  margin-top: 0;
 }
 
 .file-list-table .kebab-menu-btn {
@@ -836,12 +920,9 @@ main {
 }
 
 .pdf-preview {
-  min-height: 600px;
-  max-height: 600px;
   border: 1px solid #ddd;
   border-radius: 4px;
-  overflow-y: auto;
-  overflow-x: hidden;
+  /* No scrolling - let viewport handle it */
   background: #fafafa;
   padding: 10px;
 }
@@ -899,8 +980,7 @@ main {
 }
 
 .metadata-display {
-  max-height: 600px;
-  overflow-y: auto;
+  /* No scrolling - let viewport handle it */
 }
 
 .metadata-display .placeholder {
@@ -1465,8 +1545,7 @@ main {
 
 .activity-log-content {
   margin-top: 10px;
-  max-height: 400px;
-  overflow-y: auto;
+  /* No scrolling - let viewport handle it */
 }
 
 .activity-log-entries {

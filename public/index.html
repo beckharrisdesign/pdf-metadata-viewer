@@ -8,8 +8,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body>
-  <div class="container">
-    <header>
+  <header>
+    <div class="header-container">
       <div class="file-selector">
         <button id="back-to-list-btn" class="back-to-list-btn">← Back to List</button>
         <button id="prev-btn" class="nav-btn" title="Previous PDF">‹</button>
@@ -17,8 +17,10 @@
         <button id="split-btn" class="nav-split-btn" title="Split PDF" style="display: none;">Split</button>
         <button id="next-btn" class="nav-btn" title="Next PDF">›</button>
       </div>
-    </header>
+    </div>
+  </header>
 
+  <div class="container">
     <main>
       <!-- File List View (default starting point) -->
       <div id="file-list-view" class="file-list-view">
