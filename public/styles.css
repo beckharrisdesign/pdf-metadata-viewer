@@ -427,6 +427,12 @@ main {
   gap: 6px;
 }
 
+/* Warning/alert filter tags */
+.file-list-table th .filter-tag.filter-tag-warning {
+  background-color: #ea4335;
+  color: white;
+}
+
 .file-list-table th .filter-tag-text {
   display: inline-block;
 }
@@ -551,6 +557,12 @@ main {
   transition: background-color 0.2s ease;
 }
 
+/* Warning/alert tags */
+.file-list-table .tag.tag-warning {
+  background-color: #fce8e6;
+  color: #c5221f;
+}
+
 .file-list-table .tag.clickable-tag {
   cursor: pointer;
 }
@@ -558,6 +570,10 @@ main {
 .file-list-table .tag.clickable-tag:hover {
   background-color: #d2e3fc;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.file-list-table .tag.clickable-tag.tag-warning:hover {
+  background-color: #f9d0cc;
 }
 
 .file-list-table .empty {
@@ -862,6 +878,21 @@ main {
   letter-spacing: 0.5px;
 }
 
+.pdf-loading-indicator {
+  padding: 20px;
+  text-align: center;
+  color: #666;
+  font-size: 14px;
+  background: #f9f9f9;
+  border-radius: 4px;
+  margin: 10px 0;
+}
+
+.pdf-loading-indicator.error {
+  color: #d32f2f;
+  background: #ffebee;
+}
+
 .pdf-preview .placeholder {
   color: #999;
   font-style: italic;
@@ -1050,6 +1081,12 @@ main {
   line-height: 1.4;
 }
 
+/* Warning/alert tags */
+.tag.tag-warning {
+  background-color: #fce8e6;
+  color: #c5221f;
+}
+
 .tags-editor {
   display: flex;
   flex-direction: column;
@@ -1072,6 +1109,12 @@ main {
   color: white;
   padding: 5px 10px;
   position: relative;
+}
+
+/* Warning/alert tags in editor */
+.tags-container .tag.tag-warning {
+  background-color: #ea4335;
+  color: white;
 }
 
 .tag-remove {
@@ -1098,18 +1141,45 @@ main {
 
 .tag-input-container {
   display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.tag-input-container .predefined-tags {
+  width: 100%;
+  margin-bottom: 0;
+}
+
+.tag-input-container > .tag-input,
+.tag-input-container > .save-btn {
+  display: inline-flex;
+}
+
+.tag-input-wrapper {
+  display: flex;
   gap: 8px;
   align-items: center;
+  width: 100%;
+  flex-wrap: nowrap;
 }
 
 .tag-input {
   flex: 1;
+  min-width: 0;
   padding: 6px 10px;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 14px;
   font-family: inherit;
   color: #333;
+}
+
+.tag-input-container .save-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+  min-width: 60px;
 }
 
 .tag-input:focus {
@@ -1489,7 +1559,7 @@ main {
 
 .ai-suggestion-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 15px;
   padding: 12px;
   background: white;
@@ -1502,6 +1572,7 @@ main {
   color: #333;
   min-width: 80px;
   font-size: 14px;
+  padding-top: 2px;
 }
 
 .ai-suggestion-value {
@@ -1521,6 +1592,8 @@ main {
   cursor: pointer;
   transition: background-color 0.2s;
   white-space: nowrap;
+  align-self: flex-start;
+  margin-top: 2px;
 }
 
 .ai-apply-btn:hover {

@@ -207,8 +207,9 @@ export class TableManager {
     // Render each filter tag
     if (this.filterTags[columnIndex] && this.filterTags[columnIndex].size > 0) {
       this.filterTags[columnIndex].forEach((originalTag, tagLower) => {
+        const isWarning = tagLower === 'needs-deleting' || tagLower === 'duplicate';
         const tagElement = document.createElement('span');
-        tagElement.className = 'filter-tag';
+        tagElement.className = `filter-tag ${isWarning ? 'filter-tag-warning' : ''}`;
         tagElement.innerHTML = `
           <span class="filter-tag-text">${escapeHtml(originalTag)}</span>
           <button class="filter-tag-remove" data-tag="${escapeHtml(tagLower)}" aria-label="Remove filter">×</button>
@@ -317,9 +318,10 @@ export class TableManager {
               cell.innerHTML = '<span class="empty">(empty)</span>';
             } else {
               cell.innerHTML = '<div class="tags-display">' + 
-                keywordsArray.map(keyword => 
-                  `<span class="tag clickable-tag" data-tag="${escapeHtml(keyword)}">${escapeHtml(keyword)}</span>`
-                ).join('') + 
+                keywordsArray.map(keyword => {
+                  const isWarning = keyword === 'needs-deleting' || keyword === 'duplicate';
+                  return `<span class="tag clickable-tag ${isWarning ? 'tag-warning' : ''}" data-tag="${escapeHtml(keyword)}">${escapeHtml(keyword)}</span>`;
+                }).join('') + 
                 '</div>';
               
               // Add click handlers to tags

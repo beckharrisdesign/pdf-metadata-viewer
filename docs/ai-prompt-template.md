@@ -82,12 +82,25 @@ Guidelines:
 - MUST use EXACT slugs from the taxonomy above - do NOT invent new tags
 - Check for and remove duplicate tags before returning
 - Required tags to include:
-  - Document type (receipt, invoice, bill, statement, etc.)
-  - Category (grocery, retail, medical, financial, etc.)
-  - Vendor (if recognized - use exact slug from taxonomy like "heb", "arc", "pnc")
-  - Person (if found - use exact slug from taxonomy like "katherine-b-harris", "felix-b-pierce")
+  - Document type (receipt, invoice, bill, statement, etc.) - REQUIRED
+  - Category (grocery, retail, medical, financial, etc.) - REQUIRED
+  - Vendor (if recognized - MUST use exact slug from taxonomy) - REQUIRED if vendor visible
+  - Person (if found - MUST use exact slug from taxonomy) - REQUIRED if person visible
   - Action/status tags (if applicable: needs-payment, keep-annual, keep-7yr, keep-permanent, etc.)
   - Time period tags (if date is clear: year-YYYY, month-MM format, e.g., "year-2025", "month-02")
+  
+CRITICAL ENTITY MATCHING RULES:
+When you see a person's name in the document (e.g., "Felix", "Felix Pierce", "Katherine Harris"):
+  1. Look in the PEOPLE list above for a matching full name or partial name match
+  2. Use the EXACT slug shown (e.g., if you see "Felix" or "Felix Pierce", use "felix-b-pierce")
+  3. DO NOT use natural names like "felix" or "katherine" - ALWAYS use the full slug format
+  4. If the person is not in the list, do NOT include them in keywords
+
+When you see a vendor/business name in the document (e.g., "HEB", "Target", "Austin Regional Clinic"):
+  1. Look in the VENDORS list above for a matching business name
+  2. Use the EXACT slug shown (e.g., if you see "HEB", use "heb"; if you see "Austin Regional Clinic", use "arc")
+  3. DO NOT use business names directly - ALWAYS use the slug format
+  4. If the vendor is not in the list, do NOT include them in keywords
 - Examples:
   - GOOD: `receipt,grocery,retail,heb,katherine-b-harris,keep-annual,year-2025,month-02`
   - BAD: `Receipt, Grocery, HEB, Keep Annual` (spaces, capitalization)

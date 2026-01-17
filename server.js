@@ -753,14 +753,24 @@ SPECIAL FLAGS (use if applicable): ${taxonomy.specials.join(', ')}
 
 LOCATIONS (use if applicable): ${taxonomy.locations.join(', ')}
 
-PEOPLE (use exact slugs if found): ${taxonomy.people.join(', ')}
+PEOPLE (REQUIRED if person found - match name to slug):
+${(taxonomy.peopleWithNames || taxonomy.people.map(s => ({ name: s, slug: s }))).map(p => `  - "${p.name}" → use slug: "${p.slug}"`).join('\n')}
 
-VENDORS (use exact slugs if found, first 30): ${taxonomy.vendors.slice(0, 30).join(', ')}${taxonomy.vendors.length > 30 ? ' (and more)' : ''}
+VENDORS (REQUIRED if vendor found - match business name to slug, first 50):
+${(taxonomy.vendorsWithNames || taxonomy.vendors.slice(0, 50).map(s => ({ name: s, slug: s }))).map(v => `  - "${v.name}" → use slug: "${v.slug}"`).join('\n')}${taxonomy.vendors.length > 50 ? '\n  ... (and more)' : ''}
 
-CRITICAL RULES:
+CRITICAL RULES FOR ENTITIES:
+- If you see a person's name in the document (e.g., "Felix", "Felix Pierce", "Katherine Harris"), you MUST:
+  1. Find the matching entry in the PEOPLE list above by matching first/last names
+  2. Use the EXACT slug shown (e.g., if you see "Felix" or "Felix Pierce", use "felix-b-pierce")
+  3. DO NOT use natural names or partial names - ALWAYS use the full slug format
+- If you see a vendor/business name in the document (e.g., "HEB", "Target", "Austin Regional Clinic"), you MUST:
+  1. Find the matching entry in the VENDORS list above
+  2. Use the EXACT slug shown (e.g., if you see "HEB", use "heb"; if you see "Austin Regional Clinic", use "arc")
+- If a person or vendor appears in the document but is NOT in the lists above, do NOT include them in keywords
+
+CRITICAL RULES FOR ALL TAGS:
 - Use EXACT tag slugs from the lists above - do not create new tags
-- For people: Use format fname-mname-lname (e.g., "katherine-b-harris", "john-n-pierce")
-- For vendors: Use exact vendor slugs (e.g., "heb", "arc", "pnc", "rrisd")
 - Combine multiple tags with commas, no spaces (e.g., "receipt,grocery,heb,paid")
 - Include document type, category, vendor (if found), person (if found), and action/status tags
 - Add time period tags if date is clear (e.g., "year-2025", "month-03")

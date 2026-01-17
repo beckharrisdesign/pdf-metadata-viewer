@@ -10,6 +10,71 @@ let currentlyEditing = null;
 let editingFilename = false;
 let tableManager = null; // Table manager instance
 
+// Set up header button event listeners directly
+// This is more reliable than delegation when buttons might be recreated
+function setupHeaderButtons() {
+  // Remove existing listeners by cloning and replacing buttons (prevents duplicates)
+  const backBtn = document.getElementById('back-to-list-btn');
+  const prevBtn = document.getElementById('prev-btn');
+  const nextBtn = document.getElementById('next-btn');
+  const splitBtn = document.getElementById('split-btn');
+  
+  if (backBtn) {
+    // Clone to remove old listeners
+    const newBackBtn = backBtn.cloneNode(true);
+    backBtn.parentNode.replaceChild(newBackBtn, backBtn);
+    newBackBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('Back to list clicked');
+      showFileListView();
+      await loadFileList();
+    });
+  }
+  
+  if (prevBtn) {
+    const newPrevBtn = prevBtn.cloneNode(true);
+    prevBtn.parentNode.replaceChild(newPrevBtn, prevBtn);
+    newPrevBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('Previous clicked');
+      navigatePrevious();
+    });
+  }
+  
+  if (nextBtn) {
+    const newNextBtn = nextBtn.cloneNode(true);
+    nextBtn.parentNode.replaceChild(newNextBtn, nextBtn);
+    newNextBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('Next clicked');
+      navigateNext();
+    });
+  }
+  
+  if (splitBtn) {
+    const newSplitBtn = splitBtn.cloneNode(true);
+    splitBtn.parentNode.replaceChild(newSplitBtn, splitBtn);
+    newSplitBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('Split clicked');
+      if (currentFilename) {
+        try {
+          const response = await fetch(`/api/metadata/${encodeURIComponent(currentFilename)}`);
+          const metadata = await response.json();
+          showSplitterView(currentFilename, metadata);
+        } catch (error) {
+          console.error('Error loading metadata for splitter:', error);
+          alert('Error loading PDF metadata');
+        }
+      }
+    });
+  }
+}
+
 // Load available PDFs on page load
 document.addEventListener('DOMContentLoaded', async () => {
   // Show file list view by default
@@ -24,56 +89,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
   
-  // Use event delegation on header for all button clicks (more reliable)
-  const header = document.querySelector('header');
-  if (header) {
-    header.addEventListener('click', async (e) => {
-      const target = e.target;
-      
-      // Back to list button
-      if (target.id === 'back-to-list-btn' || target.closest('#back-to-list-btn')) {
-        e.preventDefault();
-        showFileListView();
-        await loadFileList();
-        return;
-      }
-      
-      // Previous button
-      if (target.id === 'prev-btn' || target.closest('#prev-btn')) {
-        e.preventDefault();
-        navigatePrevious();
-        return;
-      }
-      
-      // Next button
-      if (target.id === 'next-btn' || target.closest('#next-btn')) {
-        e.preventDefault();
-        navigateNext();
-        return;
-      }
-      
-      // Split button
-      if (target.id === 'split-btn' || target.closest('#split-btn')) {
-        e.preventDefault();
-        if (currentFilename) {
-          try {
-            const response = await fetch(`/api/metadata/${encodeURIComponent(currentFilename)}`);
-            const metadata = await response.json();
-            showSplitterView(currentFilename, metadata);
-          } catch (error) {
-            console.error('Error loading metadata for splitter:', error);
-            alert('Error loading PDF metadata');
-          }
-        }
-        return;
-      }
-    });
-    
-    // Hide back button initially (only show in detail view)
-    const backToListBtn = document.getElementById('back-to-list-btn');
-    if (backToListBtn) {
-      backToListBtn.style.display = 'none';
-    }
+  // Set up buttons immediately
+  setupHeaderButtons();
+  
+  // Also set up buttons after a short delay to catch any that are created later
+  setTimeout(setupHeaderButtons, 100);
+  
+  // Hide back button initially (only show in detail view)
+  const backToListBtn = document.getElementById('back-to-list-btn');
+  if (backToListBtn) {
+    backToListBtn.style.display = 'none';
   }
   
   // Filename click handler
@@ -100,9 +125,14 @@ async function loadPDFList() {
 
 // File List View Functions
 function showFileListView() {
-  document.getElementById('file-list-view').style.display = 'block';
-  document.getElementById('detail-view').style.display = 'none';
-  document.querySelector('header').style.display = 'none';
+  const fileListView = document.getElementById('file-list-view');
+  const detailView = document.getElementById('detail-view');
+  const header = document.querySelector('header');
+  
+  if (fileListView) fileListView.style.display = 'block';
+  if (detailView) detailView.style.display = 'none';
+  if (header) header.style.display = 'none';
+  
   // Hide back button in list view
   const backBtn = document.getElementById('back-to-list-btn');
   if (backBtn) backBtn.style.display = 'none';
@@ -115,6 +145,8 @@ function showDetailView() {
   // Show back button in detail view
   const backBtn = document.getElementById('back-to-list-btn');
   if (backBtn) backBtn.style.display = 'block';
+  // Re-setup header buttons to ensure they work
+  setupHeaderButtons();
 }
 
 async function loadFileList() {
@@ -294,8 +326,10 @@ async function loadMetadataProgressively(files, batchSize = 20) {
 }
 
 async function openFileDetail(filename) {
-  // Load PDF list for navigation
-  await loadPDFList();
+  // Load PDF list for navigation (cache if already loaded)
+  if (!pdfList || pdfList.length === 0) {
+    await loadPDFList();
+  }
   
   // Find index of file
   currentIndex = pdfList.indexOf(filename);
@@ -308,14 +342,18 @@ async function openFileDetail(filename) {
   
   currentFilename = filename;
   
-  // Show detail view
+  // Show detail view immediately
   showDetailView();
-  
-  // Load file preview and metadata
   updatePDFNameDisplay();
-  await loadPDFPreview(filename);
-  await loadPDFMetadata(filename);
   updateNavigationButtons();
+  
+  // Load metadata and preview in parallel for faster initial load
+  // Metadata loads faster, so show it first
+  const metadataPromise = loadPDFMetadata(filename);
+  const previewPromise = loadPDFPreview(filename);
+  
+  // Wait for both, but metadata will likely finish first
+  await Promise.all([metadataPromise, previewPromise]);
   updateSplitButtonVisibility();
 }
 
@@ -455,9 +493,15 @@ function navigatePrevious() {
   currentlyEditing = null;
   editingFilename = false;
   updatePDFNameDisplay();
-  loadPDFPreview(filename);
-  loadPDFMetadata(filename);
   updateNavigationButtons();
+  
+  // Load in parallel for faster navigation
+  Promise.all([
+    loadPDFPreview(filename),
+    loadPDFMetadata(filename)
+  ]).then(() => {
+    updateSplitButtonVisibility();
+  });
 }
 
 function navigateNext() {
@@ -475,9 +519,15 @@ function navigateNext() {
   currentlyEditing = null;
   editingFilename = false;
   updatePDFNameDisplay();
-  loadPDFPreview(filename);
-  loadPDFMetadata(filename);
   updateNavigationButtons();
+  
+  // Load in parallel for faster navigation
+  Promise.all([
+    loadPDFPreview(filename),
+    loadPDFMetadata(filename)
+  ]).then(() => {
+    updateSplitButtonVisibility();
+  });
 }
 
 function updateNavigationButtons() {
@@ -511,19 +561,78 @@ async function loadPDFPreview(filename, useCacheBust = false) {
   }
   
   try {
+    // Show loading state
+    preview.innerHTML = '<p class="placeholder">Loading preview...</p>';
+    
     // Use PDF.js for minimal preview
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     
     const loadingTask = pdfjsLib.getDocument(pdfUrl);
     const pdf = await loadingTask.promise;
     
+    // Update page count immediately (from PDF object, faster than rendering)
+    currentPageCount = pdf.numPages;
+    updatePDFNameDisplay();
+    updateSplitButtonVisibility();
+    
     preview.innerHTML = '';
     
-    // Render all pages
+    // Render first page immediately for fast initial display
     const pagesContainer = document.createElement('div');
     pagesContainer.className = 'pdf-pages-container';
     
-    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+    // Render first page synchronously
+    const firstPage = await pdf.getPage(1);
+    const firstViewport = firstPage.getViewport({ scale: 1.2 });
+    
+    const firstPageWrapper = document.createElement('div');
+    firstPageWrapper.className = 'pdf-page-wrapper';
+    
+    const firstCanvas = document.createElement('canvas');
+    const firstContext = firstCanvas.getContext('2d');
+    firstCanvas.height = firstViewport.height;
+    firstCanvas.width = firstViewport.width;
+    
+    await firstPage.render({
+      canvasContext: firstContext,
+      viewport: firstViewport
+    }).promise;
+    
+    const firstPageLabel = document.createElement('div');
+    firstPageLabel.className = 'page-label';
+    firstPageLabel.textContent = 'Page 1';
+    
+    firstPageWrapper.appendChild(firstPageLabel);
+    firstPageWrapper.appendChild(firstCanvas);
+    pagesContainer.appendChild(firstPageWrapper);
+    
+    preview.appendChild(pagesContainer);
+    
+    // Lazy load remaining pages in background (non-blocking)
+    if (pdf.numPages > 1) {
+      // Show a loading indicator for remaining pages
+      const loadingIndicator = document.createElement('div');
+      loadingIndicator.className = 'pdf-loading-indicator';
+      loadingIndicator.textContent = `Loading ${pdf.numPages - 1} more page${pdf.numPages - 1 > 1 ? 's' : ''}...`;
+      pagesContainer.appendChild(loadingIndicator);
+      
+      // Load remaining pages asynchronously
+      loadRemainingPages(pdf, pagesContainer, loadingIndicator);
+    }
+    
+  } catch (error) {
+    console.error('Error loading PDF preview:', error);
+    preview.innerHTML = '<p class="placeholder">Error loading PDF preview</p>';
+    currentPageCount = 0;
+    updatePDFNameDisplay();
+    updateSplitButtonVisibility();
+  }
+}
+
+// Load remaining PDF pages in background
+async function loadRemainingPages(pdf, container, loadingIndicator) {
+  try {
+    for (let pageNum = 2; pageNum <= pdf.numPages; pageNum++) {
       const page = await pdf.getPage(pageNum);
       const viewport = page.getViewport({ scale: 1.2 });
       
@@ -546,21 +655,26 @@ async function loadPDFPreview(filename, useCacheBust = false) {
       
       pageWrapper.appendChild(pageLabel);
       pageWrapper.appendChild(canvas);
-      pagesContainer.appendChild(pageWrapper);
+      
+      // Insert before loading indicator
+      container.insertBefore(pageWrapper, loadingIndicator);
+      
+      // Small delay to prevent blocking UI
+      if (pageNum % 5 === 0) {
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
     }
     
-    preview.appendChild(pagesContainer);
-    
-    // Update page count in navigation bar
-    currentPageCount = pdf.numPages;
-    updatePDFNameDisplay();
-    updateSplitButtonVisibility();
+    // Remove loading indicator when done
+    if (loadingIndicator && loadingIndicator.parentNode) {
+      loadingIndicator.remove();
+    }
   } catch (error) {
-    console.error('Error loading PDF preview:', error);
-    preview.innerHTML = '<p class="placeholder">Error loading PDF preview</p>';
-    currentPageCount = 0;
-    updatePDFNameDisplay();
-    updateSplitButtonVisibility();
+    console.error('Error loading remaining pages:', error);
+    if (loadingIndicator) {
+      loadingIndicator.textContent = 'Error loading some pages';
+      loadingIndicator.className = 'pdf-loading-indicator error';
+    }
   }
 }
 
@@ -615,32 +729,38 @@ function parseCommaDelimitedString(str) {
 
 function displayMetadata(metadata) {
   const metadataDisplay = document.getElementById('metadata-display');
+  if (!metadataDisplay) return;
   
-  // Main editable fields - shown first (always visible)
-  const mainFields = [
-    { key: 'title', label: 'Title', editable: true },
-    { key: 'keywords', label: 'Keywords', editable: true }
-  ];
+  // Show loading state immediately
+  metadataDisplay.innerHTML = '<p class="placeholder">Loading metadata...</p>';
   
-  // Secondary editable fields - shown before system fields
-  const secondaryFields = [
-    { key: 'subject', label: 'Subject', editable: true },
-    { key: 'author', label: 'Author', editable: true }
-  ];
-  
-  // System fields - shown at bottom, smaller, not editable
-  const systemFields = [
-    { key: 'creator', label: 'Creator', editable: false },
-    { key: 'producer', label: 'Producer', editable: false },
-    { key: 'creationDate', label: 'Creation Date', editable: false },
-    { key: 'modificationDate', label: 'Modification Date', editable: false },
-    { key: 'pageCount', label: 'Page Count', editable: false }
-  ];
-  
-  let html = '';
-  
-  // Render main editable fields first
-  mainFields.forEach(field => {
+  // Defer heavy DOM work to next frame to keep UI responsive
+  requestAnimationFrame(() => {
+    // Main editable fields - shown first (always visible)
+    const mainFields = [
+      { key: 'title', label: 'Title', editable: true },
+      { key: 'keywords', label: 'Keywords', editable: true }
+    ];
+    
+    // Secondary editable fields - shown before system fields
+    const secondaryFields = [
+      { key: 'subject', label: 'Subject', editable: true },
+      { key: 'author', label: 'Author', editable: true }
+    ];
+    
+    // System fields - shown at bottom, smaller, not editable
+    const systemFields = [
+      { key: 'creator', label: 'Creator', editable: false },
+      { key: 'producer', label: 'Producer', editable: false },
+      { key: 'creationDate', label: 'Creation Date', editable: false },
+      { key: 'modificationDate', label: 'Modification Date', editable: false },
+      { key: 'pageCount', label: 'Page Count', editable: false }
+    ];
+    
+    let html = '';
+    
+    // Render main editable fields first
+    mainFields.forEach(field => {
     const value = metadata[field.key];
     const displayValue = value || (field.key === 'pageCount' ? '0' : '');
     const isEmpty = !value && field.key !== 'pageCount';
@@ -665,12 +785,15 @@ function displayMetadata(metadata) {
             <div class="metadata-label">${field.label}</div>
             <div class="tags-editor">
               <div class="tags-container" id="tags-container-${field.key}">
-                ${keywordsArray.map((tag, idx) => `
-                  <span class="tag" data-tag-index="${idx}">
+                ${keywordsArray.map((tag, idx) => {
+                  const isWarning = tag === 'needs-deleting' || tag === 'duplicate';
+                  return `
+                  <span class="tag ${isWarning ? 'tag-warning' : ''}" data-tag-index="${idx}">
                     ${escapeHtml(tag)}
                     <button class="tag-remove" data-tag-index="${idx}">×</button>
                   </span>
-                `).join('')}
+                `;
+                }).join('')}
               </div>
               <div class="tag-input-container">
                 <div class="predefined-tags">
@@ -680,12 +803,14 @@ function displayMetadata(metadata) {
                   <button type="button" class="predefined-tag-btn" data-tag="needs-deleting">needs-deleting</button>
                   <button type="button" class="predefined-tag-btn" data-tag="duplicate">duplicate</button>
                 </div>
-                <input type="text" 
-                       class="tag-input" 
-                       placeholder="Add a tag..."
-                       data-field="${field.key}"
-                       id="tag-input-${field.key}">
-                <button class="save-btn" data-field="${field.key}">Save</button>
+                <div class="tag-input-wrapper">
+                  <input type="text" 
+                         class="tag-input" 
+                         placeholder="Add a tag..."
+                         data-field="${field.key}"
+                         id="tag-input-${field.key}">
+                  <button class="save-btn" data-field="${field.key}">Save</button>
+                </div>
               </div>
             </div>
           </div>
@@ -712,7 +837,10 @@ function displayMetadata(metadata) {
                  data-field="${field.key}" 
                  ${field.editable ? 'data-editable="true"' : ''}>
               ${keywordsArray.length > 0 
-                ? keywordsArray.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('')
+                ? keywordsArray.map(tag => {
+                  const isWarning = tag === 'needs-deleting' || tag === 'duplicate';
+                  return `<span class="tag ${isWarning ? 'tag-warning' : ''}">${escapeHtml(tag)}</span>`;
+                }).join('')
                 : '<span class="empty">(empty)</span>'
               }
             </div>
@@ -751,10 +879,10 @@ function displayMetadata(metadata) {
         `;
       }
     }
-  });
-  
-  // Render secondary editable fields
-  secondaryFields.forEach(field => {
+    });
+    
+    // Render secondary editable fields
+    secondaryFields.forEach(field => {
     const value = metadata[field.key];
     const displayValue = value || '';
     const isEmpty = !value;
@@ -789,10 +917,10 @@ function displayMetadata(metadata) {
         </div>
       `;
     }
-  });
-  
-  // Render system fields at bottom (smaller, not editable)
-  systemFields.forEach(field => {
+    });
+    
+    // Render system fields at bottom (smaller, not editable)
+    systemFields.forEach(field => {
     const value = metadata[field.key];
     const displayValue = value || (field.key === 'pageCount' ? '0' : '');
     const isEmpty = !value && field.key !== 'pageCount';
@@ -805,125 +933,126 @@ function displayMetadata(metadata) {
         </div>
       </div>
     `;
-  });
-  
-  // Display custom metadata if available
-  if (metadata.custom && Object.keys(metadata.custom).length > 0) {
-    html += '<div class="metadata-item"><div class="metadata-label">Custom Properties</div></div>';
-    Object.entries(metadata.custom).forEach(([key, value]) => {
-      html += `
-        <div class="metadata-item">
-          <div class="metadata-label">${key}</div>
-          <div class="metadata-value">${value}</div>
-        </div>
-      `;
     });
-  }
-  
-  // Add AI Suggestions button at the top
-  html = `
-    <div class="metadata-item ai-suggestions-action">
-      <button id="ai-suggestions-btn" class="ai-suggestions-btn">✨ Get AI Suggestions</button>
-    </div>
-  ` + html;
-  
-  metadataDisplay.innerHTML = html;
-  
-  // Add click handler for AI suggestions button
-  const aiBtn = document.getElementById('ai-suggestions-btn');
-  if (aiBtn) {
-    aiBtn.addEventListener('click', () => {
-      requestAISuggestions(currentFilename);
-    });
-  }
-  
-  // Add click handlers for editable fields
-  metadataDisplay.querySelectorAll('[data-editable="true"]').forEach(el => {
-    el.addEventListener('click', handleFieldClick);
-  });
-  
-  // Add save button handlers (excluding keywords which has its own handler)
-  metadataDisplay.querySelectorAll('.save-btn').forEach(btn => {
-    const field = btn.dataset.field;
-    if (field !== 'keywords') {
-      btn.addEventListener('click', handleSave);
-    }
-  });
-  
-  // Add Enter key handler for input fields
-  metadataDisplay.querySelectorAll('.metadata-input').forEach(input => {
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        const field = input.dataset.field;
-        handleSave({ target: { dataset: { field } } });
-      }
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        cancelEdit();
-      }
-    });
-    // Focus the input when it appears
-    input.focus();
-    input.select();
-  });
-  
-  // Special handling for keywords tag editor
-  if (currentlyEditing === 'keywords') {
-    const tagInput = document.getElementById('tag-input-keywords');
-    const tagsContainer = document.getElementById('tags-container-keywords');
-    const saveBtn = metadataDisplay.querySelector('.save-btn[data-field="keywords"]');
     
-    // Handle tag input (Enter to add tag, comma also adds)
-    if (tagInput) {
-      tagInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ',') {
+    // Display custom metadata if available
+    if (metadata.custom && Object.keys(metadata.custom).length > 0) {
+      html += '<div class="metadata-item"><div class="metadata-label">Custom Properties</div></div>';
+      Object.entries(metadata.custom).forEach(([key, value]) => {
+        html += `
+          <div class="metadata-item">
+            <div class="metadata-label">${key}</div>
+            <div class="metadata-value">${value}</div>
+          </div>
+        `;
+      });
+    }
+    
+    // Add AI Suggestions button at the top
+    html = `
+      <div class="metadata-item ai-suggestions-action">
+        <button id="ai-suggestions-btn" class="ai-suggestions-btn">✨ Get AI Suggestions</button>
+      </div>
+    ` + html;
+    
+    metadataDisplay.innerHTML = html;
+    
+    // Add click handler for AI suggestions button
+    const aiBtn = document.getElementById('ai-suggestions-btn');
+    if (aiBtn) {
+      aiBtn.addEventListener('click', () => {
+        requestAISuggestions(currentFilename);
+      });
+    }
+    
+    // Add click handlers for editable fields
+    metadataDisplay.querySelectorAll('[data-editable="true"]').forEach(el => {
+      el.addEventListener('click', handleFieldClick);
+    });
+    
+    // Add save button handlers (excluding keywords which has its own handler)
+    metadataDisplay.querySelectorAll('.save-btn').forEach(btn => {
+      const field = btn.dataset.field;
+      if (field !== 'keywords') {
+        btn.addEventListener('click', handleSave);
+      }
+    });
+    
+    // Add Enter key handler for input fields
+    metadataDisplay.querySelectorAll('.metadata-input').forEach(input => {
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
           e.preventDefault();
-          const tagValue = tagInput.value.trim();
-          if (tagValue) {
-            addTag(tagValue);
-            tagInput.value = '';
-          }
+          const field = input.dataset.field;
+          handleSave({ target: { dataset: { field } } });
         }
         if (e.key === 'Escape') {
           e.preventDefault();
           cancelEdit();
         }
       });
+      // Focus the input when it appears
+      input.focus();
+      input.select();
+    });
+    
+    // Special handling for keywords tag editor
+    if (currentlyEditing === 'keywords') {
+      const tagInput = document.getElementById('tag-input-keywords');
+      const tagsContainer = document.getElementById('tags-container-keywords');
+      const saveBtn = metadataDisplay.querySelector('.save-btn[data-field="keywords"]');
       
-      tagInput.focus();
+      // Handle tag input (Enter to add tag, comma also adds)
+      if (tagInput) {
+        tagInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            const tagValue = tagInput.value.trim();
+            if (tagValue) {
+              addTag(tagValue);
+              tagInput.value = '';
+            }
+          }
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            cancelEdit();
+          }
+        });
+        
+        tagInput.focus();
+      }
+      
+      // Handle predefined tag buttons
+      const predefinedTagBtns = metadataDisplay.querySelectorAll('.predefined-tag-btn');
+      predefinedTagBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          const tagValue = btn.dataset.tag;
+          if (tagValue) {
+            addTag(tagValue);
+          }
+        });
+      });
+      
+      // Handle tag removal
+      metadataDisplay.querySelectorAll('.tag-remove').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const index = parseInt(btn.dataset.tagIndex);
+          removeTag(index);
+        });
+      });
+      
+      // Save button handler for keywords
+      if (saveBtn) {
+        saveBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          handleKeywordsSave(e);
+        });
+      }
     }
-    
-    // Handle predefined tag buttons
-    const predefinedTagBtns = metadataDisplay.querySelectorAll('.predefined-tag-btn');
-    predefinedTagBtns.forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        const tagValue = btn.dataset.tag;
-        if (tagValue) {
-          addTag(tagValue);
-        }
-      });
-    });
-    
-    // Handle tag removal
-    metadataDisplay.querySelectorAll('.tag-remove').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const index = parseInt(btn.dataset.tagIndex);
-        removeTag(index);
-      });
-    });
-    
-    // Save button handler for keywords
-    if (saveBtn) {
-      saveBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        handleKeywordsSave(e);
-      });
-    }
-  }
+  }); // End requestAnimationFrame
 }
 
 function addTag(tagValue) {
@@ -1716,7 +1845,10 @@ function displayAISuggestions(suggestions) {
       <div class="ai-suggestion-label">Keywords</div>
       <div class="ai-suggestion-value">
         ${keywordsArray.length > 0 
-          ? '<div class="tags-display">' + keywordsArray.map(k => `<span class="tag">${escapeHtml(k)}</span>`).join('') + '</div>'
+          ? '<div class="tags-display">' + keywordsArray.map(k => {
+            const isWarning = k === 'needs-deleting' || k === 'duplicate';
+            return `<span class="tag ${isWarning ? 'tag-warning' : ''}">${escapeHtml(k)}</span>`;
+          }).join('') + '</div>'
           : '<span class="empty">(empty)</span>'
         }
       </div>
