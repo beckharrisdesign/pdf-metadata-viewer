@@ -101,11 +101,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     backToListBtn.style.display = 'none';
   }
   
-  // Filename click handler
-  const pdfNameElement = document.getElementById('pdf-name');
-  if (pdfNameElement) {
-    pdfNameElement.addEventListener('click', handleFilenameClick);
-  }
+  // Filename click handler - use event delegation so it works after innerHTML updates
+  document.addEventListener('click', (e) => {
+    // Check if click is on the filename or the clickable span inside it
+    if (e.target.id === 'pdf-name' || e.target.closest('#pdf-name .filename-clickable') || 
+        (e.target.classList.contains('filename-clickable') && e.target.closest('#pdf-name'))) {
+      handleFilenameClick(e);
+    }
+  });
   
   // Set up activity log toggle
   const activityLogToggle = document.getElementById('activity-log-toggle');
