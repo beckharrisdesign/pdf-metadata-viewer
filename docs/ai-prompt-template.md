@@ -5,9 +5,12 @@ This template is used to generate prompts for OpenAI's Vision API when suggestin
 ## Template Variables
 
 The following variables are automatically inserted:
+- `{{currentFilename}}` - Current PDF filename
+- `{{filenameDate}}` - Date extracted from filename in YYYY-MM-DD format (empty if not found)
 - `{{currentTitle}}` - Current PDF title
 - `{{currentSubject}}` - Current PDF subject
 - `{{currentKeywords}}` - Current PDF keywords
+- `{{currentCreationDate}}` - Current PDF creation date in YYYY-MM-DD format (empty if not available)
 - `{{taxonomyText}}` - Full taxonomy reference (auto-generated from taxonomy files)
 
 ## Main Prompt Template
@@ -15,10 +18,14 @@ The following variables are automatically inserted:
 ```
 Analyze this scanned document image and suggest appropriate metadata values using the predefined tagging taxonomy.
 
+Current filename: {{currentFilename}}
+{{#if filenameDate}}- Date found in filename: {{filenameDate}} (CRITICAL: Use this date in the suggested filename){{/if}}
+
 Current metadata:
 - Title: {{currentTitle}}
 - Subject: {{currentSubject}}
 - Keywords: {{currentKeywords}}
+{{#if currentCreationDate}}- Creation Date: {{currentCreationDate}}{{/if}}
 
 {{taxonomyText}}
 
@@ -42,6 +49,11 @@ Guidelines:
 - Keep each section concise - Subject/Vendor should be 1-3 words, not the full subject field
 - Required elements in order:
   1. Date: YYYY-MM-DD format (regular dashes between date parts)
+     - CRITICAL DATE PRIORITY (use in this order):
+       1. If a date is found in the current filename above, USE THAT DATE
+       2. If Creation Date is provided in metadata above, USE THAT DATE
+       3. Only use a date from the document image if neither filename nor metadata date is available
+     - Do NOT default to a fixed date like "2024-10-01" - use the actual date from filename, metadata, or document
   2. Type: Document type in sentence case (e.g., "Receipt", "Invoice", "Bill", "Statement")
   3. Subject/Vendor: Either category in sentence case (e.g., "Grocery", "Medical") OR vendor name as proper noun (e.g., "HEB", "ARC", "PNC") - use recognizable vendor name from taxonomy. Keep it short (1-3 words max).
   4. Person: Person first name or full name (e.g., "Alexandra", "Felix", "Felix Pierce") - NOT the slug format. Use natural name, not "katherine-b-harris" format.

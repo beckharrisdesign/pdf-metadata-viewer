@@ -873,6 +873,13 @@ app.post('/api/ai-suggestions/:filename', async (req, res) => {
       return res.status(400).json({ error: 'No images provided. Please ensure the PDF preview is loaded.' });
     }
     
+    // Extract date from filename if present (YYYY-MM-DD format)
+    let filenameDate = '';
+    const dateMatch = filename.match(/(\d{4}-\d{2}-\d{2})/);
+    if (dateMatch) {
+      filenameDate = dateMatch[1];
+    }
+    
     // Get current metadata for context
     const pdfBytes = await readFileWithTimeout(filePath);
     const pdfDoc = await PDFDocument.load(pdfBytes);
@@ -880,6 +887,20 @@ app.post('/api/ai-suggestions/:filename', async (req, res) => {
     const currentSubject = pdfDoc.getSubject() || '';
     const currentKeywords = pdfDoc.getKeywords() || [];
     const currentKeywordsStr = Array.isArray(currentKeywords) ? currentKeywords.join(', ') : String(currentKeywords);
+    
+    // Get creation date and format it
+    const creationDate = pdfDoc.getCreationDate();
+    let currentCreationDate = '';
+    if (creationDate) {
+      // Format as YYYY-MM-DD
+      const date = new Date(creationDate);
+      if (!isNaN(date.getTime())) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        currentCreationDate = `${year}-${month}-${day}`;
+      }
+    }
     
     // Load taxonomy
     const taxonomy = await loadTaxonomy();
@@ -926,10 +947,14 @@ CRITICAL RULES FOR ALL TAGS:
     // Load main prompt template from file (or use default)
     let promptText = `Analyze this scanned document image and suggest appropriate metadata values using the predefined tagging taxonomy.
 
+Current filename: ${filename}
+${filenameDate ? `- Date found in filename: ${filenameDate} (CRITICAL: Use this date in the suggested filename)` : ''}
+
 Current metadata:
 - Title: ${currentTitle || '(empty)'}
 - Subject: ${currentSubject || '(empty)'}
 - Keywords: ${currentKeywordsStr || '(empty)'}
+${currentCreationDate ? `- Creation Date: ${currentCreationDate}` : ''}
 
 ${taxonomyText}
 
@@ -942,7 +967,7 @@ Please provide suggestions in JSON format with the following structure:
 }
 
 Guidelines:
-- Filename: Use format YYYY-MM-DD — Type — Subject or Vendor — Person or persons.pdf (use em dashes — to separate sections, regular dashes only between date parts YYYY-MM-DD). Required elements: Date (YYYY-MM-DD), Document Type (receipt, invoice, bill, etc.), Subject/Vendor (category like "Grocery" or vendor name in title case like "HEB", "ARC", "PNC" - use recognizable vendor name from taxonomy), and Person (if document relates to specific person like "Alexandra" or "Felix"). If no date found, start with Type. No file extension.
+- Filename: Use format YYYY-MM-DD — Type — Subject or Vendor — Person or persons.pdf (use em dashes — to separate sections, regular dashes only between date parts YYYY-MM-DD). Required elements: Date (YYYY-MM-DD) - DATE PRIORITY: ${filenameDate ? `1. USE the date from filename (${filenameDate})` : ''}${filenameDate && currentCreationDate ? ', ' : ''}${currentCreationDate ? `${filenameDate ? '2. ' : '1. '}USE the Creation Date from metadata (${currentCreationDate})` : ''}${(filenameDate || currentCreationDate) ? ', ' : ''}${(filenameDate || currentCreationDate) ? '3. ' : '1. '}Otherwise use date from document image. Document Type (receipt, invoice, bill, etc.), Subject/Vendor (category like "Grocery" or vendor name in title case like "HEB", "ARC", "PNC" - use recognizable vendor name from taxonomy), and Person (if document relates to specific person like "Alexandra" or "Felix"). If no date found, start with Type. No file extension.
 - Title: Concise, descriptive title (max 100 characters)
 - Subject: Concise summary of the document based on its content (10 words or less, max 50 characters)
 - Keywords: 3-10 relevant tags as comma-separated values (NO SPACES), using EXACT slugs from the taxonomy above
@@ -958,9 +983,32 @@ Return ONLY valid JSON, no other text.`;
       if (promptMatch) {
         promptText = promptMatch[1].trim();
         // Replace template variables
+        promptText = promptText.replace(/\{\{currentFilename\}\}/g, filename);
+        promptText = promptText.replace(/\{\{filenameDate\}\}/g, filenameDate || '');
         promptText = promptText.replace(/\{\{currentTitle\}\}/g, currentTitle || '(empty)');
         promptText = promptText.replace(/\{\{currentSubject\}\}/g, currentSubject || '(empty)');
         promptText = promptText.replace(/\{\{currentKeywords\}\}/g, currentKeywordsStr || '(empty)');
+        // Replace filename date - if empty, remove conditional block, otherwise insert it
+        if (filenameDate) {
+          promptText = promptText.replace(/\{\{#if filenameDate\}\}([\s\S]*?)\{\{\/if\}\}/g, (match, content) => {
+            return content.replace(/\{\{filenameDate\}\}/g, filenameDate);
+          });
+        } else {
+          promptText = promptText.replace(/\{\{#if filenameDate\}\}([\s\S]*?)\{\{\/if\}\}/g, '');
+        }
+        
+        // Replace creation date - if empty, remove conditional block, otherwise insert it
+        if (currentCreationDate) {
+          promptText = promptText.replace(/\{\{#if currentCreationDate\}\}([\s\S]*?)\{\{\/if\}\}/g, (match, content) => {
+            return content.replace(/\{\{currentCreationDate\}\}/g, currentCreationDate);
+          });
+        } else {
+          promptText = promptText.replace(/\{\{#if currentCreationDate\}\}([\s\S]*?)\{\{\/if\}\}/g, '');
+        }
+        
+        // Clean up any remaining template variables
+        promptText = promptText.replace(/\{\{filenameDate\}\}/g, filenameDate || '');
+        promptText = promptText.replace(/\{\{currentCreationDate\}\}/g, currentCreationDate || '');
         promptText = promptText.replace(/\{\{taxonomyText\}\}/g, taxonomyText);
       }
     } catch (error) {

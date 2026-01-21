@@ -9,6 +9,8 @@ let currentPageCount = 0;
 let currentlyEditing = null;
 let editingFilename = false;
 let tableManager = null; // Table manager instance
+let currentMetadata = null; // Store current metadata
+let aiSuggestions = null; // Store AI suggestions for diff display
 
 // Set up header button event listeners directly
 // This is more reliable than delegation when buttons might be recreated
@@ -21,8 +23,10 @@ function setupHeaderButtons() {
   
   if (backBtn) {
     // Clone to remove old listeners
+    const currentDisplay = backBtn.style.display; // Preserve current display state
     const newBackBtn = backBtn.cloneNode(true);
     backBtn.parentNode.replaceChild(newBackBtn, backBtn);
+    newBackBtn.style.display = currentDisplay; // Restore display state after cloning
     newBackBtn.addEventListener('click', async (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -140,31 +144,49 @@ function showFileListView() {
   const nextBtn = document.getElementById('next-btn');
   const splitBtn = document.getElementById('split-btn');
   const pdfName = document.getElementById('pdf-name');
+  const viewTitle = document.getElementById('view-title');
+  const refreshBtn = document.getElementById('refresh-list-btn');
   
   if (backBtn) backBtn.style.display = 'none';
   if (prevBtn) prevBtn.style.display = 'none';
   if (nextBtn) nextBtn.style.display = 'none';
   if (splitBtn) splitBtn.style.display = 'none';
   if (pdfName) pdfName.style.display = 'none';
+  if (viewTitle) {
+    viewTitle.style.display = 'flex';
+    viewTitle.textContent = 'PDF Files';
+  }
+  if (refreshBtn) refreshBtn.style.display = 'block';
 }
 
 function showDetailView() {
   document.getElementById('file-list-view').style.display = 'none';
-  document.getElementById('detail-view').style.display = 'grid';
+  document.getElementById('detail-view').style.display = 'block';
   
   // Show navigation buttons in detail view (header always visible)
   const backBtn = document.getElementById('back-to-list-btn');
   const prevBtn = document.getElementById('prev-btn');
   const nextBtn = document.getElementById('next-btn');
   const pdfName = document.getElementById('pdf-name');
+  const viewTitle = document.getElementById('view-title');
+  const refreshBtn = document.getElementById('refresh-list-btn');
   
   if (backBtn) backBtn.style.display = 'block';
   if (prevBtn) prevBtn.style.display = 'flex';
   if (nextBtn) nextBtn.style.display = 'flex';
   if (pdfName) pdfName.style.display = 'flex';
+  if (viewTitle) viewTitle.style.display = 'none';
+  if (refreshBtn) refreshBtn.style.display = 'none';
   
   // Re-setup header buttons to ensure they work
   setupHeaderButtons();
+  
+  // Ensure buttons are visible after setup (setupHeaderButtons preserves display state)
+  // But we explicitly set them here to be safe
+  if (backBtn) backBtn.style.display = 'block';
+  if (prevBtn) prevBtn.style.display = 'flex';
+  if (nextBtn) nextBtn.style.display = 'flex';
+  if (pdfName) pdfName.style.display = 'flex';
 }
 
 async function loadFileList() {
@@ -186,6 +208,7 @@ async function loadFileList() {
     
     if (files.length === 0) {
       container.innerHTML = '<p class="placeholder">No PDF files found</p>';
+      updateFileListStats(0, 0);
       return;
     }
     
@@ -295,6 +318,9 @@ async function loadFileList() {
       }
     });
     
+    // Update stats with total files
+    updateFileListStats(totalFiles, 0); // Will update edited count after metadata loads
+    
     // Now load metadata in batches (progressive loading)
     await loadMetadataProgressively(files);
     
@@ -304,9 +330,25 @@ async function loadFileList() {
   }
 }
 
+// Update file list statistics
+function updateFileListStats(totalFiles, filesWithEdits) {
+  const totalFilesEl = document.getElementById('stat-total-files');
+  const filesWithEditsEl = document.getElementById('stat-files-with-edits');
+  
+  if (totalFilesEl) {
+    totalFilesEl.textContent = totalFiles;
+  }
+  if (filesWithEditsEl) {
+    filesWithEditsEl.textContent = filesWithEdits;
+  }
+}
+
 // Load metadata progressively in batches
 async function loadMetadataProgressively(files, batchSize = 20) {
   if (!tableManager) return;
+  
+  const totalFiles = files.length;
+  const filesWithEditsSet = new Set(); // Track unique files with edits
   
   for (let i = 0; i < files.length; i += batchSize) {
     const batch = files.slice(i, i + batchSize);
@@ -323,6 +365,11 @@ async function loadMetadataProgressively(files, batchSize = 20) {
       batchFiles.forEach(file => {
         const keywordsArray = file.keywords ? parseCommaDelimitedString(file.keywords) : [];
         
+        // Track files with edits (updateCount > 0)
+        if (file.updateCount && file.updateCount > 0) {
+          filesWithEditsSet.add(file.filename);
+        }
+        
         tableManager.updateRow(file.filename, {
           title: file.title || '',
           subject: file.subject || '',
@@ -332,6 +379,9 @@ async function loadMetadataProgressively(files, batchSize = 20) {
           updateCount: file.updateCount || 0
         });
       });
+      
+      // Update stats after each batch
+      updateFileListStats(totalFiles, filesWithEditsSet.size);
     } catch (error) {
       console.error(`Error loading metadata for batch ${i}-${i + batchSize}:`, error);
     }
@@ -341,6 +391,9 @@ async function loadMetadataProgressively(files, batchSize = 20) {
       await new Promise(resolve => setTimeout(resolve, 50));
     }
   }
+  
+  // Final stats update
+  updateFileListStats(totalFiles, filesWithEditsSet.size);
 }
 
 async function openFileDetail(filename) {
@@ -359,6 +412,7 @@ async function openFileDetail(filename) {
   }
   
   currentFilename = filename;
+  aiSuggestions = null; // Clear suggestions when opening a new file
   
   // Show detail view immediately
   showDetailView();
@@ -510,6 +564,7 @@ function navigatePrevious() {
   currentFilename = filename;
   currentlyEditing = null;
   editingFilename = false;
+  aiSuggestions = null; // Clear suggestions when navigating
   updatePDFNameDisplay();
   updateNavigationButtons();
   
@@ -536,6 +591,7 @@ function navigateNext() {
   currentFilename = filename;
   currentlyEditing = null;
   editingFilename = false;
+  aiSuggestions = null; // Clear suggestions when navigating
   updatePDFNameDisplay();
   updateNavigationButtons();
   
@@ -701,12 +757,15 @@ async function loadPDFMetadata(filename) {
     const response = await fetch(`/api/metadata/${encodeURIComponent(filename)}`);
     const metadata = await response.json();
     
+    // Store current metadata
+    currentMetadata = metadata;
+    
     // Store page count for navigation bar display
     currentPageCount = metadata.pageCount || 0;
     updatePDFNameDisplay();
     updateSplitButtonVisibility();
     
-    displayMetadata(metadata);
+    displayMetadata(metadata, aiSuggestions);
   } catch (error) {
     console.error('Error loading metadata:', error);
     const metadataDisplay = document.getElementById('metadata-display');
@@ -722,6 +781,85 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+// Helper function to render diff view for a field
+function renderDiffValue(currentValue, suggestedValue, isEmpty) {
+  if (!suggestedValue || suggestedValue === currentValue) {
+    // No suggestion or suggestion matches current - show normal
+    return isEmpty ? '<span class="empty">(empty)</span>' : escapeHtml(currentValue);
+  }
+  
+  // Show diff: current (red strikethrough) → suggested (green)
+  const currentDisplay = currentValue || '(empty)';
+  const suggestedDisplay = suggestedValue || '(empty)';
+  
+  return `
+    <span class="diff-value">
+      <span class="diff-removed">${escapeHtml(currentDisplay)}</span>
+      <span class="diff-arrow"> → </span>
+      <span class="diff-added">${escapeHtml(suggestedDisplay)}</span>
+    </span>
+  `;
+}
+
+// Helper function to render keywords diff
+function renderKeywordsDiff(currentKeywords, suggestedKeywords) {
+  const currentArray = currentKeywords ? parseCommaDelimitedString(currentKeywords) : [];
+  const suggestedArray = suggestedKeywords ? parseCommaDelimitedString(suggestedKeywords) : [];
+  
+  // Check if they're the same
+  const currentStr = currentArray.sort().join(',');
+  const suggestedStr = suggestedArray.sort().join(',');
+  
+  if (currentStr === suggestedStr) {
+    // No change - show normal
+    if (currentArray.length === 0) {
+      return '<span class="empty">(empty)</span>';
+    }
+    return '<div class="tags-display">' + currentArray.map(tag => {
+      const isWarning = tag === 'needs-deleting' || tag === 'duplicate';
+      return `<span class="tag ${isWarning ? 'tag-warning' : ''}">${escapeHtml(tag)}</span>`;
+    }).join('') + '</div>';
+  }
+  
+  // Show diff
+  const removedTags = currentArray.filter(t => !suggestedArray.includes(t));
+  const addedTags = suggestedArray.filter(t => !currentArray.includes(t));
+  const keptTags = currentArray.filter(t => suggestedArray.includes(t));
+  
+  let html = '<div class="tags-diff">';
+  
+  // Show removed tags (red strikethrough)
+  if (removedTags.length > 0) {
+    html += '<div class="tags-removed">';
+    removedTags.forEach(tag => {
+      html += `<span class="tag tag-removed">${escapeHtml(tag)}</span>`;
+    });
+    html += '</div>';
+  }
+  
+  // Show kept tags (normal)
+  if (keptTags.length > 0) {
+    html += '<div class="tags-kept">';
+    keptTags.forEach(tag => {
+      const isWarning = tag === 'needs-deleting' || tag === 'duplicate';
+      html += `<span class="tag ${isWarning ? 'tag-warning' : ''}">${escapeHtml(tag)}</span>`;
+    });
+    html += '</div>';
+  }
+  
+  // Show added tags (green)
+  if (addedTags.length > 0) {
+    html += '<div class="tags-added">';
+    addedTags.forEach(tag => {
+      html += `<span class="tag tag-added">${escapeHtml(tag)}</span>`;
+    });
+    html += '</div>';
+  }
+  
+  html += '</div>';
+  return html;
 }
 
 // Parse comma-delimited string, handling quoted values
@@ -745,7 +883,7 @@ function parseCommaDelimitedString(str) {
   return result;
 }
 
-function displayMetadata(metadata) {
+function displayMetadata(metadata, suggestions = null) {
   const metadataDisplay = document.getElementById('metadata-display');
   if (!metadataDisplay) return;
   
@@ -756,6 +894,7 @@ function displayMetadata(metadata) {
   requestAnimationFrame(() => {
     // Main editable fields - shown first (always visible)
     const mainFields = [
+      { key: 'filename', label: 'Filename', editable: false, isFilename: true }, // Filename is special - not editable in metadata but can be renamed
       { key: 'title', label: 'Title', editable: true },
       { key: 'keywords', label: 'Keywords', editable: true }
     ];
@@ -779,6 +918,32 @@ function displayMetadata(metadata) {
     
     // Render main editable fields first
     mainFields.forEach(field => {
+    // Special handling for filename field
+    if (field.key === 'filename') {
+      const currentFilenameValue = currentFilename ? currentFilename.replace(/\.pdf$/i, '') : '';
+      const suggestedFilename = suggestions && suggestions.filename !== undefined ? suggestions.filename : null;
+      // Compare without .pdf extension for both
+      const currentCompare = currentFilenameValue.toLowerCase().trim();
+      const suggestedCompare = suggestedFilename ? suggestedFilename.toLowerCase().trim() : null;
+      const hasSuggestion = suggestedCompare !== null && suggestedCompare !== currentCompare;
+      
+      html += `
+        <div class="metadata-item ${hasSuggestion ? 'has-suggestion' : ''}">
+          <div class="metadata-label">${field.label}</div>
+          <div class="metadata-value">
+            ${hasSuggestion ? renderDiffValue(currentFilenameValue, suggestedFilename, !currentFilenameValue) : escapeHtml(currentFilenameValue || '(empty)')}
+          </div>
+          ${hasSuggestion ? `
+            <div class="suggestion-actions">
+              <button class="ai-apply-inline-btn" data-field="filename" data-value="${escapeHtml(suggestedFilename || '')}">Apply</button>
+              <button class="ai-dismiss-inline-btn" data-field="filename" title="Dismiss suggestion">×</button>
+            </div>
+          ` : ''}
+        </div>
+      `;
+      return; // Skip rest of processing for filename
+    }
+    
     const value = metadata[field.key];
     const displayValue = value || (field.key === 'pageCount' ? '0' : '');
     const isEmpty = !value && field.key !== 'pageCount';
@@ -834,34 +999,42 @@ function displayMetadata(metadata) {
           </div>
         `;
       } else {
-        // Display keywords as tags
-        // Parse keywords - server returns comma-delimited string
-        let keywordsArray = [];
-        if (value) {
-          if (typeof value === 'string') {
-            // Split by comma only, handle quoted strings
-            keywordsArray = parseCommaDelimitedString(value);
-          } else if (Array.isArray(value)) {
-            keywordsArray = value.filter(k => k && k.length > 0);
-          }
-        }
+        // Display keywords as tags, with diff if suggestions exist
+        const suggestedKeywords = suggestions && suggestions.keywords !== undefined ? suggestions.keywords : null;
+        const hasSuggestion = suggestedKeywords !== null && suggestedKeywords !== value;
         
         const clickable = field.editable ? 'clickable' : '';
         
         html += `
-          <div class="metadata-item">
+          <div class="metadata-item ${hasSuggestion ? 'has-suggestion' : ''}">
             <div class="metadata-label">${field.label}</div>
             <div class="tags-display ${clickable}" 
                  data-field="${field.key}" 
                  ${field.editable ? 'data-editable="true"' : ''}>
-              ${keywordsArray.length > 0 
-                ? keywordsArray.map(tag => {
-                  const isWarning = tag === 'needs-deleting' || tag === 'duplicate';
-                  return `<span class="tag ${isWarning ? 'tag-warning' : ''}">${escapeHtml(tag)}</span>`;
-                }).join('')
-                : '<span class="empty">(empty)</span>'
-              }
+              ${hasSuggestion ? renderKeywordsDiff(value, suggestedKeywords) : (() => {
+                // Parse keywords - server returns comma-delimited string
+                let keywordsArray = [];
+                if (value) {
+                  if (typeof value === 'string') {
+                    keywordsArray = parseCommaDelimitedString(value);
+                  } else if (Array.isArray(value)) {
+                    keywordsArray = value.filter(k => k && k.length > 0);
+                  }
+                }
+                return keywordsArray.length > 0 
+                  ? keywordsArray.map(tag => {
+                    const isWarning = tag === 'needs-deleting' || tag === 'duplicate';
+                    return `<span class="tag ${isWarning ? 'tag-warning' : ''}">${escapeHtml(tag)}</span>`;
+                  }).join('')
+                  : '<span class="empty">(empty)</span>';
+              })()}
             </div>
+            ${hasSuggestion ? `
+            <div class="suggestion-actions">
+              <button class="ai-apply-inline-btn" data-field="${field.key}" data-value="${escapeHtml(suggestedKeywords || '')}">Apply</button>
+              <button class="ai-dismiss-inline-btn" data-field="${field.key}" title="Dismiss suggestion">×</button>
+            </div>
+          ` : ''}
           </div>
         `;
       }
@@ -883,16 +1056,25 @@ function displayMetadata(metadata) {
           </div>
         `;
       } else {
-        // Show regular display
+        // Show regular display or diff if suggestions exist
         const clickable = field.editable ? 'clickable' : '';
+        const suggestedValue = suggestions && suggestions[field.key] !== undefined ? suggestions[field.key] : null;
+        const hasSuggestion = suggestedValue !== null && suggestedValue !== value;
+        
         html += `
-          <div class="metadata-item">
+          <div class="metadata-item ${hasSuggestion ? 'has-suggestion' : ''}">
             <div class="metadata-label">${field.label}</div>
-            <div class="metadata-value ${isEmpty ? 'empty' : ''} ${clickable}" 
+            <div class="metadata-value ${isEmpty && !hasSuggestion ? 'empty' : ''} ${clickable}" 
                  data-field="${field.key}" 
                  ${field.editable ? 'data-editable="true"' : ''}>
-              ${isEmpty ? '(empty)' : displayValue}
+              ${hasSuggestion ? renderDiffValue(value, suggestedValue, isEmpty) : (isEmpty ? '(empty)' : displayValue)}
             </div>
+            ${hasSuggestion ? `
+              <div class="suggestion-actions">
+                <button class="ai-apply-inline-btn" data-field="${field.key}" data-value="${escapeHtml(suggestedValue || '')}">Apply</button>
+                <button class="ai-dismiss-inline-btn" data-field="${field.key}" title="Dismiss suggestion">×</button>
+              </div>
+            ` : ''}
           </div>
         `;
       }
@@ -922,16 +1104,25 @@ function displayMetadata(metadata) {
         </div>
       `;
     } else {
-      // Show regular display
+      // Show regular display or diff if suggestions exist
       const clickable = field.editable ? 'clickable' : '';
+      const suggestedValue = suggestions && suggestions[field.key] !== undefined ? suggestions[field.key] : null;
+      const hasSuggestion = suggestedValue !== null && suggestedValue !== value;
+      
       html += `
-        <div class="metadata-item">
+        <div class="metadata-item ${hasSuggestion ? 'has-suggestion' : ''}">
           <div class="metadata-label">${field.label}</div>
-          <div class="metadata-value ${isEmpty ? 'empty' : ''} ${clickable}" 
+          <div class="metadata-value ${isEmpty && !hasSuggestion ? 'empty' : ''} ${clickable}" 
                data-field="${field.key}" 
                ${field.editable ? 'data-editable="true"' : ''}>
-            ${isEmpty ? '(empty)' : displayValue}
+            ${hasSuggestion ? renderDiffValue(value, suggestedValue, isEmpty) : (isEmpty ? '(empty)' : displayValue)}
           </div>
+          ${hasSuggestion ? `
+            <div class="suggestion-actions">
+              <button class="ai-apply-inline-btn" data-field="${field.key}" data-value="${escapeHtml(suggestedValue || '')}">Apply</button>
+              <button class="ai-dismiss-inline-btn" data-field="${field.key}" title="Dismiss suggestion">×</button>
+            </div>
+          ` : ''}
         </div>
       `;
     }
@@ -994,6 +1185,23 @@ function displayMetadata(metadata) {
       if (field !== 'keywords') {
         btn.addEventListener('click', handleSave);
       }
+    });
+    
+    // Add click handlers for inline AI apply buttons
+    metadataDisplay.querySelectorAll('.ai-apply-inline-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const field = e.target.dataset.field;
+        const value = e.target.dataset.value;
+        applyAISuggestion(field, value);
+      });
+    });
+    
+    // Add click handlers for inline AI dismiss buttons
+    metadataDisplay.querySelectorAll('.ai-dismiss-inline-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const field = e.target.dataset.field;
+        dismissAISuggestion(field);
+      });
     });
     
     // Add Enter key handler for input fields
@@ -1400,12 +1608,19 @@ async function showSplitterView(filename, metadata) {
   const nextBtn = document.getElementById('next-btn');
   const splitBtn = document.getElementById('split-btn');
   const pdfName = document.getElementById('pdf-name');
+  const viewTitle = document.getElementById('view-title');
+  const refreshBtn = document.getElementById('refresh-list-btn');
   
   if (backBtn) backBtn.style.display = 'none';
   if (prevBtn) prevBtn.style.display = 'none';
   if (nextBtn) nextBtn.style.display = 'none';
   if (splitBtn) splitBtn.style.display = 'none';
   if (pdfName) pdfName.style.display = 'none';
+  if (viewTitle) {
+    viewTitle.style.display = 'flex';
+    viewTitle.textContent = `Split PDF: ${filename}`;
+  }
+  if (refreshBtn) refreshBtn.style.display = 'none';
   
   document.getElementById('splitter-filename').textContent = filename;
   splitMarkers = [];
@@ -1428,6 +1643,9 @@ function hideSplitterView() {
   
   // Ensure detail view is shown and header is visible
   showDetailView();
+  
+  // Restore PDF name display
+  updatePDFNameDisplay();
   
   splitMarkers = [];
 }
@@ -1840,7 +2058,41 @@ async function requestAISuggestions(filename) {
     }
     
     const suggestions = await response.json();
-    displayAISuggestions(suggestions);
+    // Store suggestions and re-render metadata with diffs
+    aiSuggestions = suggestions;
+    
+    // Hide the separate suggestions section
+    suggestionsSection.style.display = 'none';
+    
+    // Ensure we're still in detail view and all navigation buttons are visible
+    // (in case something reset the view state during async operations)
+    const detailView = document.getElementById('detail-view');
+    if (detailView && detailView.style.display !== 'none') {
+      const backBtn = document.getElementById('back-to-list-btn');
+      const prevBtn = document.getElementById('prev-btn');
+      const nextBtn = document.getElementById('next-btn');
+      const pdfName = document.getElementById('pdf-name');
+      
+      if (backBtn) backBtn.style.display = 'block';
+      if (prevBtn) prevBtn.style.display = 'flex';
+      if (nextBtn) nextBtn.style.display = 'flex';
+      if (pdfName) pdfName.style.display = 'flex';
+    }
+    
+    // Re-render metadata to show inline diffs
+    if (currentMetadata) {
+      displayMetadata(currentMetadata, aiSuggestions);
+    }
+    
+    // Final check: ensure back button is visible after all async operations
+    // Use setTimeout to ensure this runs after any potential DOM updates
+    setTimeout(() => {
+      const detailView = document.getElementById('detail-view');
+      const backBtn = document.getElementById('back-to-list-btn');
+      if (detailView && detailView.style.display !== 'none' && backBtn) {
+        backBtn.style.display = 'block';
+      }
+    }, 100);
   } catch (error) {
     console.error('Error getting AI suggestions:', error);
     suggestionsContent.innerHTML = `<p class="placeholder error">Error: ${escapeHtml(error.message)}</p>`;
@@ -1917,6 +2169,20 @@ function displayAISuggestions(suggestions) {
   }
 }
 
+function dismissAISuggestion(field) {
+  if (!aiSuggestions) return;
+  
+  // Remove the suggestion for this field
+  if (aiSuggestions[field] !== undefined) {
+    delete aiSuggestions[field];
+  }
+  
+  // Re-render metadata without this suggestion
+  if (currentMetadata) {
+    displayMetadata(currentMetadata, aiSuggestions);
+  }
+}
+
 async function applyAISuggestion(field, value) {
   if (!currentFilename) {
     alert('No file selected');
@@ -1942,6 +2208,12 @@ async function applyAISuggestion(field, value) {
       
       const result = await response.json();
       currentFilename = result.newFilename || newFilename;
+      
+      // Clear the filename suggestion since it's been applied
+      if (aiSuggestions && aiSuggestions.filename !== undefined) {
+        delete aiSuggestions.filename;
+      }
+      
       await loadPDFList();
       currentIndex = pdfList.indexOf(currentFilename);
       if (currentIndex === -1) {
@@ -1988,8 +2260,19 @@ async function applyAISuggestion(field, value) {
         throw new Error(error.error || 'Failed to update metadata');
       }
       
-      // Reload metadata
-      await loadPDFMetadata(currentFilename);
+      // Clear the suggestion for this field after applying
+      if (aiSuggestions && aiSuggestions[field]) {
+        delete aiSuggestions[field];
+      }
+      
+      // If filename was changed, reload everything
+      if (field === 'filename') {
+        // Filename change already handled above, just reload metadata
+        await loadPDFMetadata(currentFilename);
+      } else {
+        // Reload metadata
+        await loadPDFMetadata(currentFilename);
+      }
       
       // Reload activity log if visible
       const activityLogContent = document.getElementById('activity-log-content');
