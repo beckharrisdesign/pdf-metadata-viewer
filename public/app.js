@@ -130,24 +130,39 @@ async function loadPDFList() {
 function showFileListView() {
   const fileListView = document.getElementById('file-list-view');
   const detailView = document.getElementById('detail-view');
-  const header = document.querySelector('header');
   
   if (fileListView) fileListView.style.display = 'block';
   if (detailView) detailView.style.display = 'none';
-  if (header) header.style.display = 'none';
   
-  // Hide back button in list view
+  // Hide navigation buttons in list view (header stays visible)
   const backBtn = document.getElementById('back-to-list-btn');
+  const prevBtn = document.getElementById('prev-btn');
+  const nextBtn = document.getElementById('next-btn');
+  const splitBtn = document.getElementById('split-btn');
+  const pdfName = document.getElementById('pdf-name');
+  
   if (backBtn) backBtn.style.display = 'none';
+  if (prevBtn) prevBtn.style.display = 'none';
+  if (nextBtn) nextBtn.style.display = 'none';
+  if (splitBtn) splitBtn.style.display = 'none';
+  if (pdfName) pdfName.style.display = 'none';
 }
 
 function showDetailView() {
   document.getElementById('file-list-view').style.display = 'none';
   document.getElementById('detail-view').style.display = 'grid';
-  document.querySelector('header').style.display = 'block';
-  // Show back button in detail view
+  
+  // Show navigation buttons in detail view (header always visible)
   const backBtn = document.getElementById('back-to-list-btn');
+  const prevBtn = document.getElementById('prev-btn');
+  const nextBtn = document.getElementById('next-btn');
+  const pdfName = document.getElementById('pdf-name');
+  
   if (backBtn) backBtn.style.display = 'block';
+  if (prevBtn) prevBtn.style.display = 'flex';
+  if (nextBtn) nextBtn.style.display = 'flex';
+  if (pdfName) pdfName.style.display = 'flex';
+  
   // Re-setup header buttons to ensure they work
   setupHeaderButtons();
 }
@@ -1378,7 +1393,19 @@ async function showSplitterView(filename, metadata) {
   document.querySelector('.preview-section').style.display = 'none';
   document.querySelector('.metadata-section').style.display = 'none';
   document.getElementById('splitter-view').style.display = 'block';
-  document.querySelector('header').style.display = 'none'; // Hide navigation header in splitter view
+  
+  // Hide navigation buttons in splitter view (header stays visible)
+  const backBtn = document.getElementById('back-to-list-btn');
+  const prevBtn = document.getElementById('prev-btn');
+  const nextBtn = document.getElementById('next-btn');
+  const splitBtn = document.getElementById('split-btn');
+  const pdfName = document.getElementById('pdf-name');
+  
+  if (backBtn) backBtn.style.display = 'none';
+  if (prevBtn) prevBtn.style.display = 'none';
+  if (nextBtn) nextBtn.style.display = 'none';
+  if (splitBtn) splitBtn.style.display = 'none';
+  if (pdfName) pdfName.style.display = 'none';
   
   document.getElementById('splitter-filename').textContent = filename;
   splitMarkers = [];
